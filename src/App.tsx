@@ -17,6 +17,7 @@ function App() {
     // Implementation to be added later
   };
 
+
   // Function to handle copying text to clipboard
   const handleCopy = () => {
     navigator.clipboard.writeText(outputText);
@@ -43,6 +44,8 @@ function App() {
       {/* Render the SnippetList component with the snippets and event handlers */}
       <Hello person="World" />
       <div className="scrape-section">
+        <button className="scrape-button" onClick={runScraper}>
+          Scrape
         <button className="scrape-button" onClick={runScraper}>
           Scrape
         </button>
