@@ -1,11 +1,10 @@
 .App {
-  color: black;
-  padding: 16px;
-  width: 400px;
+    color: black;
+    text-align: center;
 }
 
 .container {
-  width: 100%;
+  width: 400px;
   padding: 1rem;
   background-color: white;
 }
