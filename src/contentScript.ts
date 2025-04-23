@@ -84,10 +84,14 @@ function scrapeLeetcodeData() {
     // Get user code
     const userCode = getUserCode();
     
+    // Get test result status
+    const testResult = getTestResultStatus();
+    
     return {
       titleSlug,
       currentUrl: window.location.href,
-      userCode
+      userCode,
+      testResult
     };
   } catch (error) {
     console.error('Error scraping data:', error);
@@ -500,6 +504,67 @@ function isValidCode(text: string): boolean {
   if (testCasePatterns.some(pattern => pattern.test(text))) return false;
   
   return false;
+}
+
+// Function to get test result status
+function getTestResultStatus() {
+  console.log('Attempting to get test result status...');
+  
+  try {
+    // Look for the result status element with the specific data attribute
+    const statusElement = document.querySelector('[data-e2e-locator="console-result"]');
+    
+    if (statusElement) {
+      const status = statusElement.textContent?.trim() || '';
+      console.log('Found test result status:', status);
+      
+      // Check if it's a success status (Accepted)
+      const isSuccess = status.includes('Accepted');
+      
+      // Get details about runtime and memory if available
+      const runtimeElement = document.querySelector('[data-e2e-locator="submission-runtime"]');
+      const memoryElement = document.querySelector('[data-e2e-locator="submission-memory"]');
+      
+      const runtime = runtimeElement ? runtimeElement.textContent?.trim() : null;
+      const memory = memoryElement ? memoryElement.textContent?.trim() : null;
+      
+      return {
+        status,
+        success: isSuccess,
+        details: {
+          runtime,
+          memory
+        }
+      };
+    }
+    
+    // If we can't find the element with the data attribute, try alternative selectors
+    const alternativeSelectors = [
+      '.text-xl.font-medium.text-green-s',  // For "Accepted" status with green color
+      '.text-xl.font-medium.text-red-s',    // For error status with red color
+      '.text-xl.font-medium',               // General status text
+      '.result-container .result-state',    // Alternative result container
+      '[data-cypress="SubmissionResult"]'   // Another possible data attribute
+    ];
+    
+    for (const selector of alternativeSelectors) {
+      const element = document.querySelector(selector);
+      if (element) {
+        const status = element.textContent?.trim() || '';
+        console.log('Found test result status via alternative selector:', status);
+        return {
+          status,
+          success: status.includes('Accepted')
+        };
+      }
+    }
+    
+    console.log('No test result status found');
+    return null;
+  } catch (error) {
+    console.error('Error getting test result status:', error);
+    return null;
+  }
 }
 
 // Add page load complete event listener

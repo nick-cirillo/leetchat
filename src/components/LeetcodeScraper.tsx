@@ -24,6 +24,16 @@ interface ProblemData {
     followUp?: string;
   };
   timestamp: number;
+  isPremium?: boolean;
+  userIsPremium?: boolean;
+  testResult?: {
+    status: string;
+    success: boolean;
+    details?: {
+      runtime: string | null;
+      memory: string | null;
+    };
+  } | null;
 }
 
 const LeetcodeScraper: React.FC = () => {
@@ -35,17 +45,19 @@ const LeetcodeScraper: React.FC = () => {
 
   // On component mount, retrieve saved data from storage or optionally clear cache
   useEffect(() => {
-    // 从存储中获取数据
+    // Retrieve data from storage
     chrome.storage.local.get('leetcodeData', (result) => {
       if (result.leetcodeData) {
-        // check if the data is expired (more than 10 minutes)
+        // Check if data is expired (more than 10 minutes old)
         const isDataExpired = !result.leetcodeData.timestamp || 
           (Date.now() - result.leetcodeData.timestamp > 10 * 60 * 1000);
         
         if (isDataExpired) {
+          // Data has expired, clear cache
           chrome.storage.local.remove('leetcodeData');
           console.log('Cached data has expired, cleared storage');
-          } else {
+        } else {
+          // Data is still valid, use it
           setProblemData(result.leetcodeData);
         }
       }
@@ -70,17 +82,17 @@ const LeetcodeScraper: React.FC = () => {
     };
   }, []);
 
-  // check if the content script is loaded and injected into the page
+  // Check if content script is loaded and inject it into the page
   const ensureContentScriptLoaded = async (tabId: number): Promise<boolean> => {
     return new Promise((resolve) => {
       try {
-        // first try to send a simple test message
+        // First try to send a simple test message
         chrome.tabs.sendMessage(tabId, { action: 'ping' }, (response) => {
-          // check if there is a response and if there is an error
+          // Check if there is a response and no errors
           if (chrome.runtime.lastError) {
             console.log('Content script not loaded, attempting to inject...', chrome.runtime.lastError);
             
-            // if the content script is not loaded, inject it manually
+            // If content script is not loaded, manually inject it
             try {
               chrome.scripting.executeScript(
                 {
@@ -93,10 +105,12 @@ const LeetcodeScraper: React.FC = () => {
                     resolve(false);
                     return;
                   }
+                  
+                  // Wait for script to load
                   setTimeout(() => {
                     console.log('Content script injected, waiting for initialization');
                     resolve(true);
-                  }, 1000); 
+                  }, 1000); // Give the script some time to initialize
                 }
               );
             } catch (err) {
@@ -159,6 +173,8 @@ const LeetcodeScraper: React.FC = () => {
           setIsLoading(false);
           return;
         }
+
+        // Clear old data to ensure cached content isn't displayed
         setProblemData(null);
         chrome.storage.local.remove('leetcodeData');
         
@@ -173,7 +189,7 @@ const LeetcodeScraper: React.FC = () => {
             return;
           }
           
-          // 解析问题内容
+          // Parse problem content
           if (problemData.content) {
             problemData.parsedContent = parseProblemContent(problemData.content);
           }
@@ -186,7 +202,8 @@ const LeetcodeScraper: React.FC = () => {
               const completeData = {
                 ...problemData,
                 userCode: null,
-                timestamp: Date.now() // 添加时间戳，确保数据总是最新的
+                testResult: null,
+                timestamp: Date.now() // Add timestamp to ensure data is always fresh
               };
               
               chrome.storage.local.set({ leetcodeData: completeData }, () => {
@@ -198,12 +215,14 @@ const LeetcodeScraper: React.FC = () => {
             
             // If fetching page data fails, we can still display problem information
             const userCode = contentData?.userCode || null;
+            const testResult = contentData?.testResult || null;
             
             // Merge available data
             const completeData = {
               ...problemData,
               userCode,
-              timestamp: Date.now() // 添加时间戳，确保数据总是最新的
+              testResult,
+              timestamp: Date.now() // Add timestamp to ensure data is always fresh
             };
 
             // Save to storage
@@ -225,6 +244,31 @@ const LeetcodeScraper: React.FC = () => {
   
   // Function to fetch problem details directly from LeetCode API
   const fetchProblemDataDirectly = async (titleSlug: string) => {
+    // User status query
+    const USER_STATUS_QUERY = `
+      query globalData {
+        userStatus {
+          userId
+          isSignedIn
+          isMockUser
+          isPremium
+          isVerified
+          username
+          avatar
+          isAdmin
+          isSuperuser
+          permissions
+          isTranslator
+          activeSessionId
+          checkedInToday
+          notificationStatus {
+            lastModified
+            numUnread
+          }
+        }
+      }
+    `;
+    
     const PROBLEM_QUERY = `
       query questionData($titleSlug: String!) {
         question(titleSlug: $titleSlug) {
@@ -233,6 +277,7 @@ const LeetcodeScraper: React.FC = () => {
           title
           content
           difficulty
+          isPaidOnly
           topicTags {
             name
           }
@@ -249,6 +294,30 @@ const LeetcodeScraper: React.FC = () => {
     `;
     
     try {
+      // First get user status
+      const userStatusResponse = await fetch('https://leetcode.com/graphql', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Origin': 'chrome-extension://'+chrome.runtime.id,
+          'Referer': 'https://leetcode.com/',
+          'Accept': 'application/json',
+          'User-Agent': navigator.userAgent
+        },
+        credentials: 'include', // Include cookies to check login status
+        body: JSON.stringify({
+          query: USER_STATUS_QUERY
+        }),
+      });
+      
+      let isPremiumUser = false;
+      if (userStatusResponse.ok) {
+        const userData = await userStatusResponse.json();
+        isPremiumUser = userData?.data?.userStatus?.isPremium === true;
+        console.log('User premium status:', isPremiumUser);
+      }
+
+      // Then get problem data
       const response = await fetch('https://leetcode.com/graphql', {
         method: 'POST',
         headers: {
@@ -271,6 +340,24 @@ const LeetcodeScraper: React.FC = () => {
 
       const data = await response.json();
       
+      // Check if problem is premium-only
+      if (data?.data?.question?.isPaidOnly === true && !isPremiumUser) {
+        console.log('Premium question detected, user is not premium member');
+        
+        // Create a special data object indicating this is a premium problem
+        return {
+          questionId: data.data.question.questionId || '',
+          questionFrontendId: data.data.question.questionFrontendId || '',
+          title: data.data.question.title || 'Premium Question',
+          content: '<div class="premium-question-notice">To view this question, you need to subscribe to LeetCode Premium.</div>',
+          difficulty: data.data.question.difficulty || '',
+          topicTags: data.data.question.topicTags || [],
+          codeSnippets: data.data.question.codeSnippets || [],
+          isPremium: true,
+          userIsPremium: isPremiumUser
+        };
+      }
+      
       // Apply additional security checks for solution content if it exists
       if (data?.data?.question?.solution?.content) {
         // Remove iframe content directly from the original data
@@ -279,7 +366,11 @@ const LeetcodeScraper: React.FC = () => {
           .replace(/<div[^>]*class="video-container"[^>]*>[\s\S]*?<\/div>/gi, '');
       }
       
-      return data.data.question;
+      // Return data along with user premium status
+      return {
+        ...data.data.question,
+        userIsPremium: isPremiumUser
+      };
     } catch (error) {
       console.error('Error fetching problem data:', error);
       return null;
@@ -307,7 +398,8 @@ const LeetcodeScraper: React.FC = () => {
             }
           : "Premium subscription required to view the solution",
         userCode: problemData.userCode || null
-      }
+      },
+      testResult: problemData.testResult || null
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -321,7 +413,7 @@ const LeetcodeScraper: React.FC = () => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     
-    // 显示成功消息
+    // Show success message
     setExported(true);
     setTimeout(() => setExported(false), 3000);
   };
@@ -345,7 +437,7 @@ const LeetcodeScraper: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // 解析题目内容，分离成不同部分
+  // Parse problem content, separate into different parts
   function parseProblemContent(content: string): {
     description: string;
     examples: { input: string; output: string; explanation?: string }[];
@@ -1056,7 +1148,7 @@ const LeetcodeScraper: React.FC = () => {
         {problemData && (
           <button 
             onClick={() => {
-              // force refresh data
+              // Force refresh to get the latest data
               chrome.storage.local.remove('leetcodeData', () => {
                 console.log('Cache cleared, fetching fresh data');
                 scrapeCurrentPage();
@@ -1106,7 +1198,15 @@ const LeetcodeScraper: React.FC = () => {
             <strong>Tags:</strong> {problemData.topicTags.map(tag => tag.name).join(', ')}
           </div>
           
-          {problemData.parsedContent ? (
+          {problemData.isPremium ? (
+            <div className="premium-content">
+              <h4>Premium Content</h4>
+              <div className="premium-message">
+                <p>This problem requires a LeetCode Premium subscription to access.</p>
+                <p>Please visit <a href={`https://leetcode.com/problems/${titleSlug}/`} target="_blank" rel="noopener noreferrer">LeetCode</a> and subscribe to Premium to view the full content.</p>
+              </div>
+            </div>
+          ) : problemData.parsedContent ? (
             <div className="parsed-content">
               {problemData.parsedContent.description && (
                 <div className="description">
@@ -1157,17 +1257,21 @@ const LeetcodeScraper: React.FC = () => {
             </div>
           )}
 
-          {problemData.solution && problemData.solution.content && (
+          {!problemData.isPremium && problemData.solution && problemData.solution.content && (
             <div className="solution-preview">
               <h4>Official Solution</h4>
               <SolutionDisplay content={problemData.solution.content} />
             </div>
           )}
 
-          {!problemData.solution?.content && (
+          {!problemData.isPremium && !problemData.solution?.content && (
             <div className="solution-premium">
               <h4>Official Solution</h4>
-              <p>Premium subscription required to view the official solution.</p>
+              {problemData.userIsPremium ? (
+                <p>This problem does not have an official solution available.</p>
+              ) : (
+                <p>Premium subscription required to view the official solution.</p>
+              )}
             </div>
           )}
         </div>
@@ -1213,6 +1317,31 @@ const LeetcodeScraper: React.FC = () => {
               </code>
             </pre>
           </div>
+        </div>
+      )}
+
+      {problemData && (
+        <div className="test-results">
+          <h3>Test Results</h3>
+          {problemData.testResult ? (
+            <div className={`test-result-status ${problemData.testResult.success ? 'success' : 'failure'}`}>
+              <strong>Status:</strong> {problemData.testResult.status}
+              {problemData.testResult.details && (
+                <div className="test-details">
+                  {problemData.testResult.details.runtime && (
+                    <div><strong>Runtime:</strong> {problemData.testResult.details.runtime}</div>
+                  )}
+                  {problemData.testResult.details.memory && (
+                    <div><strong>Memory:</strong> {problemData.testResult.details.memory}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="test-result-notice">
+              <p>Run your code in LeetCode to see test results here.</p>
+            </div>
+          )}
         </div>
       )}
     </div>
