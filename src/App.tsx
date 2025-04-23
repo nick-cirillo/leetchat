@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import "./App.css";
+import LeetcodeScraper from "./components/LeetcodeScraper";
 
 function App() {
   // State for the selected prompt type
@@ -8,12 +9,8 @@ function App() {
   const [customPromptText, setCustomPromptText] = useState<string>("");
   // State for the output text field
   const [outputText, setOutputText] = useState<string>("");
-
-  // Empty function to handle scraping
-  const runScraper = () => {
-    console.log("Scraper function called");
-    // Implementation to be added later
-  };
+  // State to show/hide the LeetCode scraper
+  const [showLeetcodeScraper, setShowLeetcodeScraper] = useState<boolean>(false);
 
   // Function to handle copying text to clipboard
   const handleCopy = () => {
@@ -35,13 +32,24 @@ function App() {
     }
   };
 
+  // Toggle LeetCode scraper visibility
+  const toggleLeetcodeScraper = () => {
+    setShowLeetcodeScraper(!showLeetcodeScraper);
+  };
+
   return (
     <div className="App">
       <div className="scrape-section">
-        <button className="scrape-button" onClick={runScraper}>
-          Scrape
+        <button className="scrape-button" onClick={toggleLeetcodeScraper}>
+          {showLeetcodeScraper ? "Hide LeetCode Tool" : "Show LeetCode Tool"}
         </button>
       </div>
+
+      {showLeetcodeScraper && (
+        <div className="leetcode-scraper-container">
+          <LeetcodeScraper />
+        </div>
+      )}
 
       <div className="prompt-options">
         <h3>Prompt Type</h3>
