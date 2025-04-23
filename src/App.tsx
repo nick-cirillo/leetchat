@@ -1,7 +1,5 @@
-// File: src/App.tsx
 import React, { useState } from "react";
 import "./App.css";
-import Hello from "./components/Hello";
 
 function App() {
   // State for the selected prompt type
@@ -16,7 +14,6 @@ function App() {
     console.log("Scraper function called");
     // Implementation to be added later
   };
-
 
   // Function to handle copying text to clipboard
   const handleCopy = () => {
@@ -40,12 +37,7 @@ function App() {
 
   return (
     <div className="App">
-      <h1>Starter Extension</h1>
-      {/* Render the SnippetList component with the snippets and event handlers */}
-      <Hello person="World" />
       <div className="scrape-section">
-        <button className="scrape-button" onClick={runScraper}>
-          Scrape
         <button className="scrape-button" onClick={runScraper}>
           Scrape
         </button>
@@ -110,3 +102,5 @@ function App() {
     </div>
   );
 }
+
+export default App;
