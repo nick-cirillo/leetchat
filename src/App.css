@@ -312,3 +312,285 @@
 .leetcode-scraper .copy-code-button:hover {
   background-color: #3182ce;
 }
+
+.leetcode-scraper .code-notice {
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 15px;
+  color: #856404;
+  font-size: 0.9rem;
+}
+
+.leetcode-scraper .code-notice p {
+  margin: 0;
+}
+
+.leetcode-scraper .test-display {
+  background-color: #f8f9fa;
+  color: #333;
+  border: 1px solid #e0e0e0;
+  padding: 10px;
+  margin-bottom: 8px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  border-radius: 4px;
+}
+
+.leetcode-scraper .test-cases-list {
+  margin-top: 10px;
+}
+
+.leetcode-scraper .test-case-item {
+  margin-bottom: 12px;
+}
+
+.leetcode-scraper .test-case-item:last-child {
+  margin-bottom: 0;
+}
+
+/* 测试用例显示样式 */
+.leetcode-scraper .test-cases-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.leetcode-scraper .test-case-item {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.leetcode-scraper .test-case-header {
+  background-color: #f5f5f5;
+  padding: 8px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.leetcode-scraper .test-display {
+  padding: 12px;
+  background-color: #f9f9f9;
+  border-radius: 0 0 8px 8px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+.leetcode-scraper .test-display.error {
+  background-color: #fff0f0;
+  color: #d32f2f;
+}
+
+.leetcode-scraper .test-result-status {
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.leetcode-scraper .test-result-status.success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.leetcode-scraper .test-result-status.failure {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+.leetcode-scraper .test-errors h4 {
+  margin-bottom: 0.5rem;
+  color: #d32f2f;
+}
+
+.leetcode-scraper .code-notice {
+  background-color: #fffde7;
+  border-left: 4px solid #ffd600;
+  padding: 8px 12px;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}
+
+.leetcode-scraper .code-notice p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* 在合适的位置添加这些样式 */
+.leetcode-scraper .parsed-content {
+  margin-top: 15px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 15px;
+  background-color: #f9fafb;
+}
+
+.leetcode-scraper .parsed-content h4 {
+  margin-top: 15px;
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #374151;
+  font-weight: 600;
+}
+
+.leetcode-scraper .examples .example {
+  margin-bottom: 15px;
+}
+
+.leetcode-scraper .example-code {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  background-color: #f0f4f8;
+  padding: 12px;
+  border-radius: 4px;
+  border-left: 3px solid #4b5563;
+  overflow-x: auto;
+  white-space: pre;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+.leetcode-scraper .constraints ul {
+  padding-left: 25px;
+}
+
+.leetcode-scraper .constraints li {
+  margin-bottom: 6px;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.leetcode-scraper .follow-up {
+  padding: 10px;
+  background-color: #eff6ff;
+  border-left: 3px solid #3b82f6;
+  border-radius: 4px;
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.leetcode-scraper .solution-preview {
+  margin-top: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 20px;
+  background-color: #f9fafb;
+  overflow: auto;
+  max-height: 500px;
+  line-height: 1.6;
+}
+
+.leetcode-scraper .solution-preview h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: #374151;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 10px;
+}
+
+/* Markdown 格式样式 */
+.leetcode-scraper .solution-preview h3 {
+  font-size: 1.25rem;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.leetcode-scraper .solution-preview h5,
+.leetcode-scraper .solution-preview h6 {
+  font-size: 1rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: #374151;
+  font-weight: 600;
+}
+
+.leetcode-scraper .solution-preview p {
+  margin: 0.75rem 0;
+  color: #4b5563;
+}
+
+.leetcode-scraper .solution-preview strong {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.leetcode-scraper .solution-preview code {
+  background-color: #f3f4f6;
+  padding: 0.15rem 0.3rem;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+  color: #1e40af;
+}
+
+.leetcode-scraper .solution-preview pre {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.leetcode-scraper .solution-preview pre code {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+  display: block;
+}
+
+.leetcode-scraper .solution-preview ul, 
+.leetcode-scraper .solution-preview ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.leetcode-scraper .solution-preview li {
+  margin-bottom: 0.5rem;
+}
+
+.leetcode-scraper .solution-preview blockquote {
+  margin: 1rem 0;
+  padding-left: 1rem;
+  border-left: 4px solid #9ca3af;
+  color: #6b7280;
+}
+
+.leetcode-scraper .solution-premium {
+  margin-top: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 15px;
+  background-color: #f9fafb;
+  color: #6b7280;
+}
+
+.leetcode-scraper .solution-premium h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #374151;
+  font-weight: 600;
+}
+
+.leetcode-scraper .solution-premium p {
+  margin: 0;
+  font-style: italic;
+}
