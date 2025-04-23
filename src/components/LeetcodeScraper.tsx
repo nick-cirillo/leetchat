@@ -38,16 +38,14 @@ const LeetcodeScraper: React.FC = () => {
     // 从存储中获取数据
     chrome.storage.local.get('leetcodeData', (result) => {
       if (result.leetcodeData) {
-        // 检查数据是否过期（超过10分钟）
+        // check if the data is expired (more than 10 minutes)
         const isDataExpired = !result.leetcodeData.timestamp || 
           (Date.now() - result.leetcodeData.timestamp > 10 * 60 * 1000);
         
         if (isDataExpired) {
-          // 数据已过期，清除缓存
           chrome.storage.local.remove('leetcodeData');
           console.log('Cached data has expired, cleared storage');
-        } else {
-          // 数据仍然有效，使用它
+          } else {
           setProblemData(result.leetcodeData);
         }
       }
@@ -72,17 +70,17 @@ const LeetcodeScraper: React.FC = () => {
     };
   }, []);
 
-  // 检查内容脚本是否已加载并注入到页面
+  // check if the content script is loaded and injected into the page
   const ensureContentScriptLoaded = async (tabId: number): Promise<boolean> => {
     return new Promise((resolve) => {
       try {
-        // 首先尝试发送一个简单的测试消息
+        // first try to send a simple test message
         chrome.tabs.sendMessage(tabId, { action: 'ping' }, (response) => {
-          // 检查是否有响应和是否有错误
+          // check if there is a response and if there is an error
           if (chrome.runtime.lastError) {
             console.log('Content script not loaded, attempting to inject...', chrome.runtime.lastError);
             
-            // 如果内容脚本未加载，手动注入
+            // if the content script is not loaded, inject it manually
             try {
               chrome.scripting.executeScript(
                 {
@@ -95,12 +93,10 @@ const LeetcodeScraper: React.FC = () => {
                     resolve(false);
                     return;
                   }
-                  
-                  // 等待脚本加载
                   setTimeout(() => {
                     console.log('Content script injected, waiting for initialization');
                     resolve(true);
-                  }, 1000); // 给脚本一些初始化的时间
+                  }, 1000); 
                 }
               );
             } catch (err) {
@@ -163,8 +159,6 @@ const LeetcodeScraper: React.FC = () => {
           setIsLoading(false);
           return;
         }
-
-        // 清除旧数据，确保不会显示缓存内容
         setProblemData(null);
         chrome.storage.local.remove('leetcodeData');
         
@@ -1062,7 +1056,7 @@ const LeetcodeScraper: React.FC = () => {
         {problemData && (
           <button 
             onClick={() => {
-              // 强制刷新数据
+              // force refresh data
               chrome.storage.local.remove('leetcodeData', () => {
                 console.log('Cache cleared, fetching fresh data');
                 scrapeCurrentPage();
