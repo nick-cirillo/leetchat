@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { LeetcodeAPI } from '../services/leetcodeAPI';
 
+interface SimilarQuestion {
+  title: string;
+  titleSlug: string;
+  difficulty: string;
+}
+
 interface ProblemData {
   questionId: string;
   questionFrontendId: string;
@@ -34,6 +40,8 @@ interface ProblemData {
       memory: string | null;
     };
   } | null;
+  similarQuestions?: string;
+  parsedSimilarQuestions?: SimilarQuestion[];
 }
 
 const LeetcodeScraper: React.FC = () => {
@@ -289,6 +297,7 @@ const LeetcodeScraper: React.FC = () => {
           solution {
             content
           }
+          similarQuestions
         }
       }
     `;
@@ -354,7 +363,8 @@ const LeetcodeScraper: React.FC = () => {
           topicTags: data.data.question.topicTags || [],
           codeSnippets: data.data.question.codeSnippets || [],
           isPremium: true,
-          userIsPremium: isPremiumUser
+          userIsPremium: isPremiumUser,
+          similarQuestions: data.data.question.similarQuestions || ''
         };
       }
       
@@ -366,16 +376,42 @@ const LeetcodeScraper: React.FC = () => {
           .replace(/<div[^>]*class="video-container"[^>]*>[\s\S]*?<\/div>/gi, '');
       }
       
+      // Parse similar questions if available
+      let parsedSimilarQuestions = undefined;
+      if (data?.data?.question?.similarQuestions) {
+        parsedSimilarQuestions = parseSimilarQuestions(data.data.question.similarQuestions);
+      }
+      
       // Return data along with user premium status
       return {
         ...data.data.question,
-        userIsPremium: isPremiumUser
+        userIsPremium: isPremiumUser,
+        parsedSimilarQuestions
       };
     } catch (error) {
       console.error('Error fetching problem data:', error);
       return null;
     }
   };
+
+  // Function to parse similar questions JSON string
+  function parseSimilarQuestions(similarQuestionsStr: string): SimilarQuestion[] {
+    try {
+      if (!similarQuestionsStr) return [];
+      
+      const questions = JSON.parse(similarQuestionsStr);
+      if (!Array.isArray(questions)) return [];
+      
+      return questions.map((q: any) => ({
+        title: q.title || '',
+        titleSlug: q.titleSlug || '',
+        difficulty: q.difficulty || ''
+      }));
+    } catch (error) {
+      console.error('Error parsing similar questions:', error);
+      return [];
+    }
+  }
 
   // Export data as a JSON file
   const exportData = () => {
@@ -399,7 +435,8 @@ const LeetcodeScraper: React.FC = () => {
           : "Premium subscription required to view the solution",
         userCode: problemData.userCode || null
       },
-      testResult: problemData.testResult || null
+      testResult: problemData.testResult || null,
+      similarQuestions: problemData.parsedSimilarQuestions || []
     };
 
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -1272,6 +1309,27 @@ const LeetcodeScraper: React.FC = () => {
               ) : (
                 <p>Premium subscription required to view the official solution.</p>
               )}
+            </div>
+          )}
+
+          {problemData.parsedSimilarQuestions && problemData.parsedSimilarQuestions.length > 0 && (
+            <div className="similar-questions">
+              <h4>Similar Questions</h4>
+              <ul className="similar-question-list">
+                {problemData.parsedSimilarQuestions.map((question, index) => (
+                  <li key={index}>
+                    <a 
+                      href={`https://leetcode.com/problems/${question.titleSlug}/`} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className={`difficulty-${question.difficulty.toLowerCase()}`}
+                    >
+                      {question.title}
+                    </a>
+                    <span className="difficulty-badge">{question.difficulty}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>

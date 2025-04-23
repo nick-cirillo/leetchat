@@ -698,3 +698,84 @@
   font-size: 14px;
   text-align: center;
 }
+
+/* Similar Questions section */
+.leetcode-scraper .similar-questions {
+  margin-top: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 15px;
+  background-color: #f9fafb;
+}
+
+.leetcode-scraper .similar-questions h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: #374151;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 10px;
+}
+
+.leetcode-scraper .similar-question-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.leetcode-scraper .similar-question-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.leetcode-scraper .similar-question-list li:last-child {
+  border-bottom: none;
+}
+
+.leetcode-scraper .similar-question-list a {
+  text-decoration: none;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.leetcode-scraper .similar-question-list a:hover {
+  text-decoration: underline;
+}
+
+.leetcode-scraper .similar-question-list .difficulty-easy {
+  color: #10b981;
+}
+
+.leetcode-scraper .similar-question-list .difficulty-medium {
+  color: #f59e0b;
+}
+
+.leetcode-scraper .similar-question-list .difficulty-hard {
+  color: #ef4444;
+}
+
+.leetcode-scraper .difficulty-badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.leetcode-scraper .similar-question-list li:has(.difficulty-easy) .difficulty-badge {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.leetcode-scraper .similar-question-list li:has(.difficulty-medium) .difficulty-badge {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.leetcode-scraper .similar-question-list li:has(.difficulty-hard) .difficulty-badge {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}

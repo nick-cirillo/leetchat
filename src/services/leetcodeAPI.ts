@@ -23,6 +23,7 @@ const PROBLEM_QUERY = `
       solution {
         content
       }
+      similarQuestions
     }
   }
 `;
@@ -42,6 +43,7 @@ interface ProblemData {
   solution?: {
     content: string;
   };
+  similarQuestions?: string;
 }
 
 interface ProblemResponse {
