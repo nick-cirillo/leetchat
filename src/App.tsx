@@ -3,36 +3,67 @@ import "./App.css";
 
 function App() {
   // State for the selected prompt type
-  const [selectedPrompt, setSelectedPrompt] = useState<string>("Explain");
+  const [selectedPrompt, setSelectedPrompt] = useState<string>("Custom");
   // State for the custom prompt text
   const [customPromptText, setCustomPromptText] = useState<string>("");
   // State for the output text field
   const [outputText, setOutputText] = useState<string>("");
 
-  // Empty function to handle scraping
+  // Function to handle prompt type selection and update the output text
+  const handlePromptChange = (promptType: string) => {
+    setSelectedPrompt(promptType);
+    if (promptType === "Custom") {
+      setOutputText(customPromptText); // Use the custom prompt text
+    } else {
+      const promptText = getPromptText(promptType); // Get the prompt text for the selected type
+      console.log(promptText);
+      setOutputText(promptText); // Update the output text
+    }
+  };
+
+  // Function to get the prompt text based on the selected option
+  const getPromptText = (promptType: string) => {
+    switch (promptType) {
+      case "Custom":
+        return customPromptText;
+      case "Explain":
+        return "Please explain this problem to me without giving me the solution.";
+      case "Debug":
+        return "Please help me debug my code, identify which test cases are passing/failing.";
+      case "Solve":
+        return "Please walk me through the solution.";
+      default:
+        return "";
+    }
+  };
+
+  const openAiService = (service: string) => {
+    const urls: { [key: string]: string } = {
+      ChatGPT: "https://chat.openai.com/",
+      Claude: "https://claude.ai/",
+      Gemini: "https://gemini.google.com/",
+      Deepseek: "https://chat.deepseek.com/",
+      Perplexity: "https://www.perplexity.ai/",
+    };
+  
+    if (urls[service]) {
+      window.open(urls[service], "_blank");
+    } else {
+      console.error("Service URL not found");
+    }
+  };
+
+  // Function to handle scraping and appending the prompt
   const runScraper = () => {
     console.log("Scraper function called");
-    // Implementation to be added later
+    const scrapedContent = "Scraped content goes here."; // Placeholder for scraped content
+    const promptText = getPromptText(selectedPrompt);
+    setOutputText(`${promptText}\n\n"""${scrapedContent}"""`);
   };
 
   // Function to handle copying text to clipboard
   const handleCopy = () => {
     navigator.clipboard.writeText(outputText);
-  };
-
-  // Function to open AI service in new tab
-  const openAiService = (service: string) => {
-    const urls: {[key: string]: string} = {
-      'ChatGPT': 'https://chat.openai.com/',
-      'Claude': 'https://claude.ai/',
-      'Gemini': 'https://gemini.google.com/',
-      'Deepseek': 'https://chat.deepseek.com/',
-      'Perplexity': 'https://www.perplexity.ai/'
-    };
-
-    if (urls[service]) {
-      window.open(urls[service], '_blank');
-    }
   };
 
   return (
@@ -46,14 +77,14 @@ function App() {
       <div className="prompt-options">
         <h3>Prompt Type</h3>
         <div className="radio-group">
-          {["Explain", "Debug", "Solve", "Custom"].map(promptType => (
+          {["Custom", "Explain", "Debug", "Solve"].map((promptType) => (
             <label key={promptType} className="radio-label">
               <input
                 type="radio"
                 name="promptType"
                 value={promptType}
                 checked={selectedPrompt === promptType}
-                onChange={() => setSelectedPrompt(promptType)}
+                onChange={() => handlePromptChange(promptType)}
               />
               {promptType}
             </label>
@@ -66,7 +97,10 @@ function App() {
           <textarea
             placeholder="Enter your custom prompt..."
             value={customPromptText}
-            onChange={(e) => setCustomPromptText(e.target.value)}
+            onChange={(e) => {
+              setCustomPromptText(e.target.value);
+              setOutputText(e.target.value); // Update output text as the user types
+            }}
             rows={3}
           />
         </div>
@@ -88,15 +122,17 @@ function App() {
       <div className="ai-services">
         <h3>Open with:</h3>
         <div className="service-buttons">
-          {['ChatGPT', 'Claude', 'Gemini', 'Deepseek', 'Perplexity'].map(service => (
-            <button 
-              key={service} 
-              className="ai-service-button"
-              onClick={() => openAiService(service)}
-            >
-              {service}
-            </button>
-          ))}
+          {["ChatGPT", "Claude", "Gemini", "Deepseek", "Perplexity"].map(
+            (service) => (
+              <button
+                key={service}
+                className="ai-service-button"
+                onClick={() => openAiService(service)}
+              >
+                {service}
+              </button>
+            )
+          )}
         </div>
       </div>
     </div>
