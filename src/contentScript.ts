@@ -4,6 +4,7 @@
  */
 
 // Initialization flag to avoid duplicate execution
+let fetchCount = 0;
 let initialized = false;
 
 // Initialization function
@@ -51,16 +52,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   if (message.action === 'scrapeLeetcodeData') {
-    try {
-      const data = scrapeLeetcodeData();
-      console.log('Scraped data:', data);
+    Promise.resolve(scrapeLeetcodeData()).then((data: any) => {
+      console.log("✅ Entire result object:", data);
       sendResponse(data);
-    } catch (error) {
-      console.error('Error scraping data:', error);
-      sendResponse({ 
-        error: `Error scraping data: ${error instanceof Error ? error.message : String(error)}` 
-      });
-    }
+    });
+    return true;
   }
   
   return true;  // Return true to make sendResponse work asynchronously
@@ -81,18 +77,36 @@ function scrapeLeetcodeData() {
       return { error: 'Unable to get problem identifier' };
     }
 
-    // Get user code
-    const userCode = getUserCode();
-    
-    // Get test result status
-    const testResult = getTestResultStatus();
-    
-    return {
-      titleSlug,
-      currentUrl: window.location.href,
-      userCode,
-      testResult
-    };
+    // Get user code and test result status
+    return new Promise(async (resolve) => {
+      try {
+        console.log('🔍 Starting to fetch user code...');
+        const userCode = await getUserCode();
+        console.log('🔍 User code retrieval:', userCode ? 'SUCCESS' : 'FAILED', 
+                    userCode ? `Length: ${userCode.length}` : '', 
+                    userCode ? `First 30 chars: ${userCode.substring(0, 30)}...` : '');
+        
+        // Get test result status
+        const testResult = getTestResultStatus();
+        
+        const result = {
+          titleSlug,
+          currentUrl: window.location.href,
+          userCode,
+          testResult
+        };
+        
+        console.log('🔍 Complete data object ready to return:', JSON.stringify(result).substring(0, 200) + '...');
+        resolve(result);
+      } catch (error) {
+        console.error('Error getting code or test result:', error);
+        resolve({ 
+          titleSlug,
+          currentUrl: window.location.href,
+          error: `Error getting code: ${error instanceof Error ? error.message : String(error)}` 
+        });
+      }
+    });
   } catch (error) {
     console.error('Error scraping data:', error);
     return { 
@@ -124,16 +138,39 @@ function cleanCode(code: string): string {
   
   // Try to automatically detect and format code based on language features
   // Detect Python indentation
-  if (cleanedCode.includes('def ') || cleanedCode.includes('class ') && cleanedCode.includes(':')) {
-    return formatPythonCode(cleanedCode);
+  if ((cleanedCode.includes('def ') || cleanedCode.includes('class ')) && cleanedCode.includes(':')) {
+    const lines = cleanedCode.split('\n');
+    const hasIndent = lines.some(line => line.startsWith(' ') || line.startsWith('\t'));
+    if (hasIndent) {
+      return preserveIndentation(cleanedCode);
+    } else {
+      return formatPythonCode(cleanedCode);
+    }
   }
-  
-  // Detect Java/C++ braces
-  if ((cleanedCode.includes('public class') || cleanedCode.includes('class ')) && 
+
+  // Detect Java braces
+  if ((cleanedCode.includes('public class') || cleanedCode.includes('class ')) &&
       cleanedCode.includes('{') && cleanedCode.includes('}')) {
-    return formatCStyleCode(cleanedCode);
+    const lines = cleanedCode.split('\n');
+    const hasIndent = lines.some(line => line.startsWith(' ') || line.startsWith('\t'));
+    if (hasIndent) {
+      return preserveIndentation(cleanedCode);
+    } else {
+      return formatCStyleCode(cleanedCode);
+    }
   }
-  
+
+  // Detect C/C++ braces
+  if ((cleanedCode.includes('#include') || (cleanedCode.includes('int ') && cleanedCode.includes('{')))) {
+    const lines = cleanedCode.split('\n');
+    const hasIndent = lines.some(line => line.startsWith(' ') || line.startsWith('\t'));
+    if (hasIndent) {
+      return preserveIndentation(cleanedCode);
+    } else {
+      return formatCStyleCode(cleanedCode);
+    }
+  }
+
   // Default handling: simple cleanup and maintain original indentation
   return preserveIndentation(cleanedCode);
 }
@@ -173,37 +210,37 @@ function formatPythonCode(code: string): string {
     // Replace non-standard spaces with normal spaces
     .replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, ' ');
   
-  // Check if code is just one line, if so, it may need processing
-  if (!code.includes('\n')) {
+  // If code lacks indentation structure, attempt fallback formatting
+  const lines = code.split(/\r?\n/);
+  const isFlatCode = lines.filter(l => l.trim()).every(l => !l.startsWith(' ') && !l.startsWith('\t'));
+
+  if (isFlatCode) {
     // Try to add line breaks at key points to restructure the code
     code = code
-      // Add line break after common statements
       .replace(/:([ \t]*(?=def|class|if|else|elif|for|while|try|except|finally|with))/g, ':\n$1')
-      // Add line breaks at other places to avoid all code on one line
       .replace(/;[ \t]*/g, '\n')
-      // Recognize code blocks by indentation
       .replace(/[ \t]{4}(?=\S)/g, '\n    ');
   }
-  
-  const lines = code.split(/\r?\n/);
+
+  const codeLines = code.split(/\r?\n/);
   const formattedLines = [];
   let insideBlockComment = false;
   let currentIndent = 0;
-  
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
-    
+
+  for (let i = 0; i < codeLines.length; i++) {
+    let line = codeLines[i].trim();
+
     // Skip empty lines, but keep them
     if (!line) {
       formattedLines.push('');
       continue;
     }
-    
+
     // Detect block comments (multi-line strings might be used as docstrings)
     if (line.includes('"""') || line.includes("'''")) {
       const tripleQuotes = line.includes('"""') ? '"""' : "'''";
       // If there are opening and closing triple quotes on the same line, don't change comment state
-      if ((line.startsWith(tripleQuotes) && line.endsWith(tripleQuotes)) && 
+      if ((line.startsWith(tripleQuotes) && line.endsWith(tripleQuotes)) &&
           line.indexOf(tripleQuotes, 3) === line.length - 3) {
         // This is a complete multi-line string on a single line
         formattedLines.push(' '.repeat(currentIndent) + line);
@@ -212,17 +249,17 @@ function formatPythonCode(code: string): string {
       // Otherwise toggle comment state
       insideBlockComment = !insideBlockComment;
     }
-    
+
     // Handle indentation - very important for Python
     if (!insideBlockComment) {
       // Keywords that reduce indentation
       if (line.match(/^(else|elif|except|finally):/)) {
         currentIndent = Math.max(0, currentIndent - 4);
       }
-      
+
       // Add appropriate indentation
       formattedLines.push(' '.repeat(currentIndent) + line);
-      
+
       // Keywords that increase indentation (lines ending with colon, like if, for, etc.)
       if (line.endsWith(':')) {
         currentIndent += 4;
@@ -232,16 +269,16 @@ function formatPythonCode(code: string): string {
       formattedLines.push(' '.repeat(currentIndent) + line);
     }
   }
-  
+
   // Check if there's any indentation, if not, the code might be malformed
   const hasProperIndentation = formattedLines.some(line => line.startsWith('    '));
-  
+
   // If there's no proper indentation, we might need to try other methods
-  if (!hasProperIndentation && code.includes('def ') && code.includes(':')) {
-    // This is a simple fallback plan, trying to rebuild code structure based on keywords
-    return rebuildPythonCode(code);
-  }
-  
+  // if (!hasProperIndentation && code.includes('def ') && code.includes(':')) {
+  //   // This is a simple fallback plan, trying to rebuild code structure based on keywords
+  //   return rebuildPythonCode(code);
+  // }
+
   return formattedLines.join('\n');
 }
 
@@ -339,117 +376,543 @@ function formatCStyleCode(code: string): string {
 }
 
 // Get user code
-function getUserCode(): string | null {
-  console.log('Attempting to get user code...');
+function getUserCode(): Promise<string | null> {
+  return new Promise((resolve) => {
+    fetchCount++;
+    console.log(`🧪 getUserCode attempt #${fetchCount}`);
+    const timeout = setTimeout(() => {
+      console.warn('⚠️ getUserCode timeout fallback');
+      resolve(null);
+    }, 3000);
+
+    console.log('Attempting to get user code...');
+
+    // Helper to wait for Monaco model to be ready
+    function waitForMonacoModel(maxAttempts = 30): Promise<string | null> {
+      return new Promise((resolve) => {
+        let attempts = 0;
+        const tryFetch = () => {
+          const editors = (window as any).monaco?.editor?.getEditors?.();
+          const model = editors?.[0]?.getModel?.();
+          if (model) {
+            const code = model.getValue();
+            console.log('✅ Got code from Monaco model after waiting');
+            resolve(code);
+          } else if (attempts >= maxAttempts) {
+            console.warn('❌ Monaco model not ready after wait');
+            resolve(null);
+          } else {
+            attempts++;
+            requestAnimationFrame(tryFetch);
+          }
+        };
+        tryFetch();
+      });
+    }
+
+    // Function to scroll Monaco editor and extract code with overlap removal logic
+    function scrollEditorAndCapture(): Promise<string> {
+      return new Promise((resolve) => {
+        const scrollEl = document.querySelector('.monaco-scrollable-element') as HTMLElement;
+
+        if (!scrollEl) {
+          console.warn('❌ Could not find .monaco-scrollable-element to scroll');
+          resolve('');
+          return;
+        }
+
+        let scrollTop = 0;
+        const scrollStep = 150;
+        let attempts = 0;
+        const maxAttempts = 30;
+        let repeatCount = 0;
+        const maxRepeats = 5;
+        let previousHash = '';
+        let lastChunk: string[] = [];
+        const capturedLines: string[] = [];
+        const seenLines = new Set<string>();
+        console.log('🧹 Initializing capture session: fresh capturedLines and seenLines');
+        console.log('🔁 capturedLines before scroll:', capturedLines.length);
+        console.log('🔁 seenLines before scroll:', seenLines.size);
+
+        // Reset scroll-related state variables before starting the scroll logic
+        scrollTop = 0;
+        attempts = 0;
+        repeatCount = 0;
+        previousHash = '';
+        lastChunk = [];
+        capturedLines.length = 0;
+        seenLines.clear();
+
+        // --- NEW DOM-BASED reveal and wait logic ---
+        // Force scroll to top and ensure top .view-line elements are actually rendered
+        scrollEl.scrollTop = 0;
+        scrollEl.dispatchEvent(new Event('scroll'));
+
+        // Wait until sufficient .view-line elements appear near the top of viewport
+        function waitUntilViewLineAtTop(minCount = 10): Promise<string[]> {
+          return new Promise((resolve) => {
+            const tryCapture = () => {
+              const viewLineNodes = Array.from(document.querySelectorAll('.view-line'));
+              const topLineNodes = viewLineNodes.filter(el => {
+                const top = el.getBoundingClientRect().top;
+                return top >= 0 && top < 400;
+              });
+              if (topLineNodes.length >= minCount) {
+                topLineNodes.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+                const lines = topLineNodes.map(line => line.textContent || '');
+                resolve(lines);
+              } else {
+                scrollEl.scrollTop = 0;
+                scrollEl.dispatchEvent(new Event('scroll'));
+                requestAnimationFrame(tryCapture);
+              }
+            };
+            tryCapture();
+          });
+        }
+
+        // Wait for top DOM lines to appear
+        (async () => {
+          await waitUntilViewLineAtTop().then((initialLines) => {
+            const uniqueInitialLines = initialLines.filter(line => {
+              if (seenLines.has(line)) return false;
+              seenLines.add(line);
+              return true;
+            });
+
+            capturedLines.push(...uniqueInitialLines);
+            console.log('📌 Initial capture complete. Top lines:', uniqueInitialLines.length);
+          });
+        })();
+
+        function findOverlapEnd(prev: string[], next: string[]): number {
+          const maxOverlap = Math.min(prev.length, next.length);
+          for (let i = maxOverlap; i > 0; i--) {
+            const tailPrev = prev.slice(-i).join('\n');
+            const headNext = next.slice(0, i).join('\n');
+            if (tailPrev === headNext) {
+              return i;
+            }
+          }
+          return 0;
+        }
+
+        const interval = setInterval(() => {
+          scrollTop += scrollStep;
+          scrollEl.scrollTop = scrollTop;
+          attempts++;
+
+          const viewLineNodes = Array.from(document.querySelectorAll('.view-line'));
+          viewLineNodes.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+          const currentLines = viewLineNodes.map(line => line.textContent || '');
+          const currentChunkHash = btoa(unescape(encodeURIComponent(currentLines.join('\n'))));
+
+          if (currentChunkHash === previousHash) {
+            repeatCount++;
+          } else {
+            repeatCount = 0;
+            previousHash = currentChunkHash;
+
+            const overlap = findOverlapEnd(capturedLines, currentLines);
+            const uniquePart = currentLines.slice(overlap).filter(line => {
+              if (seenLines.has(line)) return false;
+              seenLines.add(line);
+              return true;
+            });
+            capturedLines.push(...uniquePart);
+            lastChunk = currentLines;
+          }
+
+          console.log(`⬇️ Scroll #${attempts}, total lines: ${capturedLines.length}, overlap: ${lastChunk.length - currentLines.length}`);
+
+          const reachedBottom = scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight;
+          const gaveUp = attempts >= maxAttempts;
+          const tooMuchRepeat = repeatCount >= maxRepeats;
+
+          if (reachedBottom || gaveUp || tooMuchRepeat) {
+            clearInterval(interval);
+            const fullCode = capturedLines.join('\n');
+            console.log('✅ Done scrolling, final code line count:', capturedLines.length);
+            resolve(fullCode);
+          }
+        }, 100);
+      });
+    }
+
+    (async () => {
+      try {
+        // Try to get code from Monaco model, waiting if needed
+        const monacoCode = await waitForMonacoModel();
+        if (monacoCode) {
+          clearTimeout(timeout);
+          resolve(cleanCode(monacoCode));
+          return;
+        }
+
+        // Try to get from Monaco editor
+        if ((window as any).monaco && (window as any).monaco.editor) {
+          const editors = (window as any).monaco?.editor?.getEditors?.();
+          const mainEditor = editors?.find((e: any) => typeof e.getModel === 'function');
+          const model = mainEditor?.getModel?.();
+          if (model) {
+            const code = model.getValue();
+            console.log('✅ Got code using Monaco model, skipping scroll');
+            clearTimeout(timeout);
+            resolve(cleanCode(code));
+            return;
+          }
+        }
+
+        // Try to identify the code editing area
+        // Specific selectors for LeetCode's new UI
+        const codeAreaSelectors = [
+          // Main editor area
+          '.monaco-editor',
+          // CodeMirror editor
+          '.CodeMirror',
+          // Code submission area
+          '.code-area',
+          '.code-editor',
+          '[data-cy="code-editor"]',
+          // Possible selectors for Chinese version
+          '.editor-wrapper'
+        ];
+
+        // Try to find the code editing area element
+        let editorElement = null;
+        for (const selector of codeAreaSelectors) {
+          const element = document.querySelector(selector);
+          if (element) {
+            console.log(`Found code editing area: ${selector}`);
+            editorElement = element;
+            break;
+          }
+        }
+
+        if (editorElement) {
+          // If it's a CodeMirror editor
+          if (editorElement.classList.contains('CodeMirror') || editorElement.querySelector('.CodeMirror')) {
+            const cm = (editorElement as any).CodeMirror ||
+              (editorElement.querySelector('.CodeMirror') as any)?.CodeMirror;
+            if (cm && typeof cm.getValue === 'function') {
+              const code = cm.getValue();
+              console.log('Successfully got code from CodeMirror editor');
+              clearTimeout(timeout);
+              resolve(cleanCode(code));
+              return;
+            }
+          }
+
+          // Fallback: Scroll Monaco editor and capture code
+          const fallbackCode = await scrollEditorAndCapture();
+          if (fallbackCode) {
+            console.log('⚠️ Using fallback scroll method to get code');
+            console.log('✅ Got fallback full code via scroll');
+            console.log("🧪 Raw captured code before cleaning:", fallbackCode);
+            clearTimeout(timeout);
+            resolve(cleanCode(fallbackCode));
+            return;
+          }
+
+          // Try the DOM approach
+          const codeElements = editorElement.querySelectorAll('textarea, [role="code"], .view-lines, .ace_content');
+          for (const el of Array.from(codeElements)) {
+            const text = el.textContent || (el as HTMLTextAreaElement).value;
+            if (text && isValidCode(text)) {
+              console.log('Successfully got code from editor child element');
+              clearTimeout(timeout);
+              resolve(cleanCode(text));
+              return;
+            }
+          }
+        }
+
+        // Try to find pre-submitted code blocks
+        const preElements = document.querySelectorAll('pre');
+        for (const pre of Array.from(preElements)) {
+          // Check if it's code and not test results
+          const preText = pre.textContent || '';
+          // Check if it's a test case
+          const isTestCase = [/Input:.*Output:/i, /Example\s+\d+:/i, /^\s*输入：.*输出：/m, /^\s*示例\s*\d+：/m]
+            .some(pattern => pattern.test(preText));
+
+          if (preText && isValidCode(preText) && !isTestCase) {
+            console.log('Successfully got code from pre element');
+            clearTimeout(timeout);
+            resolve(cleanCode(preText));
+            return;
+          }
+        }
+
+        // Finally try to find all possible code in the page
+        const allPossibleCodeElements = document.querySelectorAll('.CodeMirror-code, .ace_content, .monaco-editor textarea');
+        for (const el of Array.from(allPossibleCodeElements)) {
+          const text = el.textContent;
+          // Check if it's a test case
+          const isTestCase = [/Input:.*Output:/i, /Example\s+\d+:/i]
+            .some(pattern => pattern.test(text || ''));
+
+          if (text && isValidCode(text) && !isTestCase) {
+            console.log('Successfully got code from generic code element');
+            clearTimeout(timeout);
+            resolve(cleanCode(text));
+            return;
+          }
+        }
+
+        console.log('Could not get code through any method');
+        clearTimeout(timeout);
+        resolve(null);
+      } catch (error) {
+        console.error('Error getting user code:', error);
+        clearTimeout(timeout);
+        resolve(null);
+      }
+    })();
+  });
+}
+
+// Special function to properly format Python code
+function cleanPythonCode(code: string): string {
+  if (!code) return '';
   
   try {
-    // Try to get from Monaco editor
-    if (typeof (window as any).monaco !== 'undefined') {
-      try {
-        console.log('Attempting to get code from Monaco editor...');
-        const editorModels = (window as any).monaco.editor.getModels();
-        if (editorModels && editorModels.length > 0) {
-          // Usually the code editor is the first model
-          const code = editorModels[0].getValue();
-          console.log('Got code from Monaco editor:', code ? code.substring(0, 50) + '...' : 'none');
-          return cleanCode(code);
-        }
-      } catch (e) {
-        console.error('Failed to get code from Monaco editor:', e);
-      }
-    }
+    // First, normalize line endings
+    code = code.replace(/\r\n/g, '\n');
     
-    // Try to identify the code editing area
-    // Specific selectors for LeetCode's new UI
-    const codeAreaSelectors = [
-      // Main editor area
-      '.monaco-editor',
-      // CodeMirror editor
-      '.CodeMirror',
-      // Code submission area
-      '.code-area',
-      '.code-editor',
-      '[data-cy="code-editor"]',
-      // Possible selectors for Chinese version
-      '.editor-wrapper'
-    ];
+    // Fix common formatting issues in Python
+    const lines = code.split('\n');
+    const formattedLines = [];
+    let insideDocstring = false;
     
-    // Try to find the code editing area element
-    let editorElement = null;
-    for (const selector of codeAreaSelectors) {
-      const element = document.querySelector(selector);
-      if (element) {
-        console.log(`Found code editing area: ${selector}`);
-        editorElement = element;
-        break;
-      }
-    }
-    
-    if (editorElement) {
-      // If it's a CodeMirror editor
-      if (editorElement.classList.contains('CodeMirror') || editorElement.querySelector('.CodeMirror')) {
-        const cm = (editorElement as any).CodeMirror || 
-                  (editorElement.querySelector('.CodeMirror') as any)?.CodeMirror;
-        if (cm && typeof cm.getValue === 'function') {
-          const code = cm.getValue();
-          console.log('Successfully got code from CodeMirror editor');
-          return cleanCode(code);
-        }
-      }
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i];
       
-      // Look for LeetCode-specific code areas
-      // Usually in LeetCode, code is in specific <div> or <textarea> elements
-      const codeElements = editorElement.querySelectorAll('textarea, [role="code"], .view-lines, .ace_content');
-      for (const el of Array.from(codeElements)) {
-        const text = el.textContent || (el as HTMLTextAreaElement).value;
-        if (text && isValidCode(text)) {
-          console.log('Successfully got code from editor child element');
-          return cleanCode(text);
-        }
-      }
-      
-      // If no specific elements are found, try to get the entire editor area's content
-      const editorContent = editorElement.textContent;
-      if (editorContent && isValidCode(editorContent)) {
-        console.log('Successfully got code from editor area');
-        return cleanCode(editorContent);
-      }
-    }
-    
-    // Try to find pre-submitted code blocks
-    const preElements = document.querySelectorAll('pre');
-    for (const pre of Array.from(preElements)) {
-      // Check if it's code and not test results
-      const preText = pre.textContent || '';
-      // Check if it's a test case
-      const isTestCase = [/Input:.*Output:/i, /Example\s+\d+:/i, /^\s*输入：.*输出：/m, /^\s*示例\s*\d+：/m]
-        .some(pattern => pattern.test(preText));
-      
-      if (preText && isValidCode(preText) && !isTestCase) {
-        console.log('Successfully got code from pre element');
-        return cleanCode(preText);
-      }
-    }
-    
-    // Finally try to find all possible code in the page
-    const allPossibleCodeElements = document.querySelectorAll('.CodeMirror-code, .ace_content, .monaco-editor textarea');
-    for (const el of Array.from(allPossibleCodeElements)) {
-      const text = el.textContent;
-      // Check if it's a test case
-      const isTestCase = [/Input:.*Output:/i, /Example\s+\d+:/i, /^\s*输入：.*输出：/m, /^\s*示例\s*\d+：/m]
-        .some(pattern => pattern.test(text || ''));
+      // Handle docstrings
+      if (line.includes('"""') || line.includes("'''")) {
+        const quotes = line.includes('"""') ? '"""' : "'''";
+        const quoteCount = (line.match(new RegExp(quotes, 'g')) || []).length;
         
-      if (text && isValidCode(text) && !isTestCase) {
-        console.log('Successfully got code from generic code element');
-        return cleanCode(text);
+        if (quoteCount % 2 === 1) {
+          insideDocstring = !insideDocstring;
+        }
+      }
+      
+      // Remove excessive spaces but preserve indentation
+      const indentMatch = line.match(/^(\s*)/);
+      const indent = indentMatch ? indentMatch[1] : '';
+      const trimmedLine = line.trim();
+      
+      if (trimmedLine || insideDocstring) {
+        formattedLines.push(indent + trimmedLine);
+      } else if (formattedLines.length > 0) {
+        // Keep meaningful empty lines
+        formattedLines.push('');
       }
     }
     
-    console.log('Could not get code through any method');
-    return null;
-  } catch (error) {
-    console.error('Error getting user code:', error);
-    return null;
+    // If it looks like Python but is missing class declaration at start,
+    // try to reconstruct it by moving class declaration to the top
+    let result = formattedLines.join('\n');
+    
+    if (result.includes('def ') && result.includes(':') && 
+        !result.startsWith('class') && result.includes('class')) {
+      
+      // Extract class definition
+      const classMatch = result.match(/class\s+(\w+):/);
+      if (classMatch) {
+        // Remove class definition from its current position
+        result = result.replace(/class\s+(\w+):/, '');
+        // Add it to the beginning
+        result = `class ${classMatch[1]}:\n${result}`;
+      }
+    }
+    
+    console.log('Cleaned Python code:', result);
+    return result;
+  } catch (e) {
+    console.error('Error cleaning Python code:', e);
+    return code; // Return original if cleaning fails
+  }
+}
+
+// Function to clean and format Java code
+function cleanJavaCode(code: string): string {
+  if (!code) return '';
+  
+  try {
+    // Check if it looks like reversed code (header comments at the end)
+    if (code.trimEnd().endsWith('/**')) {
+      console.log('Detected reversed Java code, attempting to fix ordering');
+      
+      // Split into lines and reverse the order
+      const lines = code.split('\n');
+      lines.reverse();
+      
+      // Join back and clean
+      code = lines.join('\n');
+    }
+    
+    // Handle standard Java class structure for LeetCode
+    const classDefinitionPattern = /class\s+Solution\s*\{/;
+    const commentHeaderPattern = /\/\*\*[\s\S]*?\*\//;
+    
+    // Try to extract class definition and comments
+    const classMatch = code.match(classDefinitionPattern);
+    const commentMatch = code.match(commentHeaderPattern);
+    
+    if (classMatch && commentMatch) {
+      // Extract the main method inside Solution class
+      const methodPattern = /public\s+\w+\s+\w+\([\s\S]*?\)\s*\{[\s\S]*?\}/g;
+      const methodMatches = Array.from(code.matchAll(methodPattern));
+      
+      if (methodMatches.length > 0) {
+        // Reconstruct code in proper order
+        let reconstructed = '';
+        
+        // First add comment header
+        reconstructed += commentMatch[0] + '\n';
+        
+        // Then add class opening
+        reconstructed += 'class Solution {\n';
+        
+        // Then add methods
+        for (const methodMatch of methodMatches) {
+          reconstructed += '    ' + methodMatch[0] + '\n';
+        }
+        
+        // Close class
+        reconstructed += '}';
+        
+        console.log('Reconstructed Java code');
+        return reconstructed;
+      }
+    }
+    
+    // If reconstruction failed, apply general cleaning
+    // Normalize line endings
+    code = code.replace(/\r\n/g, '\n');
+    
+    // Reconstruct the code with proper indentation
+    const lines = code.split('\n');
+    const formattedLines = [];
+    let indentLevel = 0;
+    
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i].trim();
+      
+      // Skip empty lines
+      if (!line) {
+        formattedLines.push('');
+        continue;
+      }
+      
+      // Handle Java brackets for indentation
+      if (line.includes('{')) indentLevel++;
+      if (line.startsWith('}')) indentLevel--;
+      
+      // Don't indent first level (class definition and comments)
+      const indent = line.startsWith('/**') || line.startsWith('*') || line.startsWith('class ') 
+        ? '' 
+        : '    '.repeat(Math.max(0, indentLevel - 1));
+      
+      formattedLines.push(indent + line);
+    }
+    
+    return formattedLines.join('\n');
+  } catch (e) {
+    console.error('Error cleaning Java code:', e);
+    return code; // Return original if cleaning fails
+  }
+}
+
+// Function to clean and format C/C++ code
+function cleanCppCode(code: string): string {
+  if (!code) return '';
+  
+  try {
+    // Normalize line endings
+    code = code.replace(/\r\n/g, '\n');
+    
+    // Fix common formatting issues in C/C++
+    const lines = code.split('\n');
+    const formattedLines = [];
+    
+    // Track brace levels for proper indentation
+    let braceLevel = 0;
+    let inComment = false;
+    
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i].trim();
+      
+      // Skip empty lines
+      if (!line) {
+        formattedLines.push('');
+        continue;
+      }
+      
+      // Handle multi-line comments
+      if (line.includes('/*')) inComment = true;
+      if (line.includes('*/')) inComment = false;
+      
+      // Handle preprocessor directives - they don't get indented
+      if (line.startsWith('#')) {
+        formattedLines.push(line);
+        continue;
+      }
+      
+      // Count braces for indentation
+      const openBraces = (line.match(/\{/g) || []).length;
+      const closeBraces = (line.match(/\}/g) || []).length;
+      
+      // If line starts with closing brace, decrease indent before adding
+      if (line.startsWith('}')) braceLevel = Math.max(0, braceLevel - 1);
+      
+      // Add indentation
+      const indent = '    '.repeat(braceLevel);
+      formattedLines.push(indent + line);
+      
+      // Update brace level for next line
+      braceLevel += openBraces - closeBraces;
+      braceLevel = Math.max(0, braceLevel); // Prevent negative level
+    }
+    
+    // For C++, ensure main function or class definition is properly placed
+    let result = formattedLines.join('\n');
+    
+    // If there's a Solution class in C++, ensure it's properly structured
+    if (result.includes('class Solution') && !result.trim().startsWith('#include') && !result.trim().startsWith('class Solution')) {
+      // Try to move #include directives to top
+      const includeMatches = result.match(/#include\s+(<|")\w+(\.\w+)?(>|")/g);
+      if (includeMatches) {
+        // Remove includes from current positions
+        for (const include of includeMatches) {
+          result = result.replace(include, '');
+        }
+        
+        // Add includes to the top
+        result = includeMatches.join('\n') + '\n\n' + result.trim();
+      }
+      
+      // Extract Solution class
+      const solutionMatch = result.match(/class\s+Solution\s*\{[\s\S]*?\};?/);
+      if (solutionMatch) {
+        const solutionClass = solutionMatch[0];
+        
+        // Remove Solution class from current position
+        result = result.replace(solutionClass, '');
+        
+        // Add Solution class after includes, or at beginning if no includes
+        result = (includeMatches ? result : solutionClass + '\n' + result.trim());
+      }
+    }
+    
+    console.log('Cleaned C/C++ code:', result);
+    return result;
+  } catch (e) {
+    console.error('Error cleaning C/C++ code:', e);
+    return code; // Return original if cleaning fails
   }
 }
 
@@ -488,18 +951,12 @@ function isValidCode(text: string): boolean {
   if (text.includes('=>')) return true;  // Arrow functions
   if (text.match(/[a-zA-Z0-9]+\([^)]*\)/)) return true;  // Function calls
   
-  // Check if it's a comment, possibly not valid code
-  if (text.includes('点赞') || text.includes('关注') || 
-      text.includes('谢谢') || text.includes('希望能帮到你')) {
-    return false;
-  }
+  
   
   // Check if it contains test case format
   const testCasePatterns = [
     /Input:.*Output:/i,
-    /Example\s+\d+:/i,
-    /^\s*输入：.*输出：/m,
-    /^\s*示例\s*\d+：/m
+    /Example\s+\d+:/i
   ];
   if (testCasePatterns.some(pattern => pattern.test(text))) return false;
   

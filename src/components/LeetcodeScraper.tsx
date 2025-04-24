@@ -149,6 +149,12 @@ const LeetcodeScraper: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
+      // Clear existing data first
+      setProblemData(null);
+      chrome.storage.local.remove('leetcodeData', () => {
+        console.log('Cache cleared before fetching fresh data');
+      });
+
       // Get the current active tab
       chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
         const currentTab = tabs[0];
@@ -182,10 +188,6 @@ const LeetcodeScraper: React.FC = () => {
           return;
         }
 
-        // Clear old data to ensure cached content isn't displayed
-        setProblemData(null);
-        chrome.storage.local.remove('leetcodeData');
-        
         // Directly fetch problem data
         try {
           // Use a direct GraphQL request to fetch problem details instead of using a background script
@@ -204,40 +206,72 @@ const LeetcodeScraper: React.FC = () => {
           
           // Attempt to fetch user code and test results
           chrome.tabs.sendMessage(tabId, { action: 'scrapeLeetcodeData' }, (contentData) => {
-            if (chrome.runtime.lastError) {
-              console.warn('Error fetching page data:', chrome.runtime.lastError.message);
-              // Even if page data cannot be fetched, we can still display problem information
-              const completeData = {
-                ...problemData,
-                userCode: null,
-                testResult: null,
-                timestamp: Date.now() // Add timestamp to ensure data is always fresh
-              };
-              
-              chrome.storage.local.set({ leetcodeData: completeData }, () => {
-                setProblemData(completeData);
-                setIsLoading(false);
+            console.log('Received data from content script type:', typeof contentData, contentData ? 'contentData is not empty' : 'contentData is empty');
+            
+            // Handle case when contentData is a Promise
+            if (contentData && typeof contentData === 'object' && 'then' in contentData) {
+              console.log('Detected Promise-like contentData, attempting to resolve');
+              (contentData as Promise<any>).then((resolvedData: any) => {
+                handleContentData(resolvedData);
+              }).catch((err: Error) => {
+                console.error('Promise resolution error:', err);
+                handleContentData(null);
               });
               return;
             }
             
-            // If fetching page data fails, we can still display problem information
-            const userCode = contentData?.userCode || null;
-            const testResult = contentData?.testResult || null;
+            // Handle case when contentData is a regular object
+            handleContentData(contentData);
             
-            // Merge available data
-            const completeData = {
-              ...problemData,
-              userCode,
-              testResult,
-              timestamp: Date.now() // Add timestamp to ensure data is always fresh
-            };
-
-            // Save to storage
-            chrome.storage.local.set({ leetcodeData: completeData }, () => {
-              setProblemData(completeData);
-              setIsLoading(false);
-            });
+            // Function to process data from content script
+            function handleContentData(data: any) {
+              if (chrome.runtime.lastError) {
+                console.warn('Error fetching page data:', chrome.runtime.lastError.message);
+                // Even if page data cannot be fetched, we can still display problem information
+                const completeData = {
+                  ...problemData,
+                  userCode: null,
+                  testResult: null,
+                  timestamp: Date.now() // Add timestamp to ensure data is always fresh
+                };
+                
+                chrome.storage.local.set({ leetcodeData: completeData }, () => {
+                  setProblemData(completeData);
+                  setIsLoading(false);
+                });
+                return;
+              }
+              
+              // Extract user code and test result
+              const userCode = data?.userCode || null;
+              console.log('User code received from content script:', userCode ? `Length: ${userCode.length}` : 'No user code');
+              if (userCode) {
+                console.log('First 100 chars of user code:', userCode.substring(0, 100));
+              }
+              
+              const testResult = data?.testResult || null;
+              
+              // Merge available data
+              const completeData = {
+                ...problemData,
+                userCode,
+                testResult,
+                timestamp: Date.now() // Add timestamp to ensure data is always fresh
+              };
+  
+              console.log('Complete data to save to storage:', JSON.stringify({
+                hasUserCode: !!completeData.userCode,
+                userCodeLength: completeData.userCode ? completeData.userCode.length : 0,
+                hasTestResult: !!completeData.testResult,
+              }));
+  
+              // Save to storage
+              chrome.storage.local.set({ leetcodeData: completeData }, () => {
+                console.log('Data saved to storage, updating state');
+                setProblemData(completeData);
+                setIsLoading(false);
+              });
+            }
           });
         } catch (err) {
           setError(`Error processing data: ${err instanceof Error ? err.message : String(err)}`);
