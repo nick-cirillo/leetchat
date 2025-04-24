@@ -2,36 +2,31 @@ import React, { useState } from "react";
 import "./App.css";
 
 function App() {
-  // State for the selected prompt type
   const [selectedPrompt, setSelectedPrompt] = useState<string>("Explain");
-  // State for the custom prompt text
   const [customPromptText, setCustomPromptText] = useState<string>("");
-  // State for the output text field
   const [outputText, setOutputText] = useState<string>("");
 
-  // Empty function to handle scraping
   const runScraper = () => {
     console.log("Scraper function called");
     // Implementation to be added later
   };
 
-  // Function to handle copying text to clipboard
   const handleCopy = () => {
     navigator.clipboard.writeText(outputText);
+    alert("Text copied to clipboard!");
   };
 
-  // Function to open AI service in new tab
   const openAiService = (service: string) => {
-    const urls: {[key: string]: string} = {
-      'ChatGPT': 'https://chat.openai.com/',
-      'Claude': 'https://claude.ai/',
-      'Gemini': 'https://gemini.google.com/',
-      'Deepseek': 'https://chat.deepseek.com/',
-      'Perplexity': 'https://www.perplexity.ai/'
+    const urls: { [key: string]: string } = {
+      ChatGPT: "https://chat.openai.com/",
+      Claude: "https://claude.ai/",
+      Gemini: "https://gemini.google.com/",
+      Deepseek: "https://chat.deepseek.com/",
+      Perplexity: "https://www.perplexity.ai/",
     };
 
     if (urls[service]) {
-      window.open(urls[service], '_blank');
+      window.open(urls[service], "_blank");
     }
   };
 
@@ -46,7 +41,7 @@ function App() {
       <div className="prompt-options">
         <h3>Prompt Type</h3>
         <div className="radio-group">
-          {["Explain", "Debug", "Solve", "Custom"].map(promptType => (
+          {["Explain", "Debug", "Solve", "Custom"].map((promptType) => (
             <label key={promptType} className="radio-label">
               <input
                 type="radio"
@@ -88,15 +83,17 @@ function App() {
       <div className="ai-services">
         <h3>Open with:</h3>
         <div className="service-buttons">
-          {['ChatGPT', 'Claude', 'Gemini', 'Deepseek', 'Perplexity'].map(service => (
-            <button 
-              key={service} 
-              className="ai-service-button"
-              onClick={() => openAiService(service)}
-            >
-              {service}
-            </button>
-          ))}
+          {["ChatGPT", "Claude", "Gemini", "Deepseek", "Perplexity"].map(
+            (service) => (
+              <button
+                key={service}
+                className="ai-service-button"
+                onClick={() => openAiService(service)}
+              >
+                {service}
+              </button>
+            )
+          )}
         </div>
       </div>
     </div>
