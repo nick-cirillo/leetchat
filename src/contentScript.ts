@@ -387,29 +387,6 @@ function getUserCode(): Promise<string | null> {
 
     console.log('Attempting to get user code...');
 
-    // Helper to wait for Monaco model to be ready
-    function waitForMonacoModel(maxAttempts = 30): Promise<string | null> {
-      return new Promise((resolve) => {
-        let attempts = 0;
-        const tryFetch = () => {
-          const editors = (window as any).monaco?.editor?.getEditors?.();
-          const model = editors?.[0]?.getModel?.();
-          if (model) {
-            const code = model.getValue();
-            console.log('✅ Got code from Monaco model after waiting');
-            resolve(code);
-          } else if (attempts >= maxAttempts) {
-            console.warn('❌ Monaco model not ready after wait');
-            resolve(null);
-          } else {
-            attempts++;
-            requestAnimationFrame(tryFetch);
-          }
-        };
-        tryFetch();
-      });
-    }
-
     // Function to scroll Monaco editor and extract code with overlap removal logic
     function scrollEditorAndCapture(): Promise<string> {
       return new Promise((resolve) => {
@@ -444,27 +421,56 @@ function getUserCode(): Promise<string | null> {
         capturedLines.length = 0;
         seenLines.clear();
 
-        // --- NEW DOM-BASED reveal and wait logic ---
-        // Force scroll to top and ensure top .view-line elements are actually rendered
+        // Force Monaco to render the top lines using editor.revealLine(1)
+        const editorInstance = (window as any).monaco?.editor?.getEditors?.()?.[0];
+        if (editorInstance?.revealLine) {
+          editorInstance.revealLine(1);
+          console.log("📌 Forced Monaco to render top line using revealLine(1)");
+        }
+        // Fallback: If Monaco API is not available, force DOM-based scroll to top and trigger render
+        if (!editorInstance?.revealLine) {
+          console.log("⚠️ Monaco editorInstance.revealLine not available, applying DOM-only scroll fallback");
+          // Fallback: scroll top and repeatedly trigger scroll events until enough .view-line are rendered
+          scrollEl.scrollTop = 0;
+          scrollEl.dispatchEvent(new Event('scroll'));
+          
+          // Define waitForViewLineRender as a local function expression
+          const waitForViewLineRender = (minLines = 5): Promise<void> => {
+            return new Promise((resolve) => {
+              const check = () => {
+                const lines = document.querySelectorAll('.view-line');
+                if (lines.length >= minLines) {
+                  resolve();
+                } else {
+                  scrollEl.scrollTop = 0;
+                  scrollEl.dispatchEvent(new Event('scroll'));
+                  requestAnimationFrame(check);
+                }
+              };
+              check();
+            });
+          };
+
+          // Wait for view lines to render
+          (async () => {
+            await waitForViewLineRender();
+            console.log("📌 Fallback scroll render: sufficient .view-line nodes detected");
+          })();
+        }
+
+        // Scroll to top and wait for top .view-line nodes to actually render
         scrollEl.scrollTop = 0;
         scrollEl.dispatchEvent(new Event('scroll'));
 
-        // Wait until sufficient .view-line elements appear near the top of viewport
-        function waitUntilViewLineAtTop(minCount = 10): Promise<string[]> {
+        function waitForInitialLines(minLines = 3): Promise<string[]> {
           return new Promise((resolve) => {
             const tryCapture = () => {
               const viewLineNodes = Array.from(document.querySelectorAll('.view-line'));
-              const topLineNodes = viewLineNodes.filter(el => {
-                const top = el.getBoundingClientRect().top;
-                return top >= 0 && top < 400;
-              });
-              if (topLineNodes.length >= minCount) {
-                topLineNodes.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
-                const lines = topLineNodes.map(line => line.textContent || '');
+              if (viewLineNodes.length >= minLines) {
+                viewLineNodes.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+                const lines = viewLineNodes.map(line => line.textContent || '');
                 resolve(lines);
               } else {
-                scrollEl.scrollTop = 0;
-                scrollEl.dispatchEvent(new Event('scroll'));
                 requestAnimationFrame(tryCapture);
               }
             };
@@ -472,9 +478,9 @@ function getUserCode(): Promise<string | null> {
           });
         }
 
-        // Wait for top DOM lines to appear
+        // Wait for initial lines to be rendered before scrolling
         (async () => {
-          await waitUntilViewLineAtTop().then((initialLines) => {
+          await waitForInitialLines().then((initialLines) => {
             const uniqueInitialLines = initialLines.filter(line => {
               if (seenLines.has(line)) return false;
               seenLines.add(line);
@@ -542,24 +548,42 @@ function getUserCode(): Promise<string | null> {
 
     (async () => {
       try {
-        // Try to get code from Monaco model, waiting if needed
-        const monacoCode = await waitForMonacoModel();
-        if (monacoCode) {
-          clearTimeout(timeout);
-          resolve(cleanCode(monacoCode));
-          return;
-        }
-
         // Try to get from Monaco editor
         if ((window as any).monaco && (window as any).monaco.editor) {
           const editors = (window as any).monaco?.editor?.getEditors?.();
           const mainEditor = editors?.find((e: any) => typeof e.getModel === 'function');
           const model = mainEditor?.getModel?.();
-          if (model) {
-            const code = model.getValue();
+          if (mainEditor) {
+            const code = mainEditor.getValue();
             console.log('✅ Got code using Monaco model, skipping scroll');
             clearTimeout(timeout);
             resolve(cleanCode(code));
+            return;
+          }
+          if (mainEditor?.getValue) {
+            const code = mainEditor.getValue();
+            console.log('✅ Got code using Monaco editor model');
+
+            // Determine language and apply appropriate formatting
+            if (code && code.includes('class ') && code.includes(':')) {
+              // Python code
+              clearTimeout(timeout);
+              resolve(cleanPythonCode(code));
+              return;
+            } else if (code && code.includes('class ') && code.includes('{') && code.includes('public')) {
+              // Java code
+              clearTimeout(timeout);
+              resolve(cleanJavaCode(code));
+              return;
+            } else if (code && (code.includes('#include') || (code.includes('int ') && code.includes('{')))) {
+              // C/C++ code
+              clearTimeout(timeout);
+              resolve(cleanCppCode(code));
+              return;
+            }
+
+            clearTimeout(timeout);
+            resolve(code);
             return;
           }
         }
