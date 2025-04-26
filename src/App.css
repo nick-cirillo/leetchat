@@ -91,10 +91,17 @@
   border-radius: 4px;
   padding: 5px 10px;
   cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease; /* Faster, smoother transition */
 }
 
 .copy-button:hover {
   background-color: #e0e0e0;
+}
+
+.copy-button.copied {
+  background-color: #4CAF50; /* Green background */
+  color: white; /* White text */
+  transition: 0.3s ease, 0.3s ease; /* Apply transition on both states */
 }
 
 .ai-services {
@@ -122,4 +129,660 @@
 
 .ai-service-button:hover {
   background-color: #e0e0e0;
+}
+
+/* LeetCode Scraper Styles */
+.leetcode-scraper-container {
+  margin: 20px 0;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.leetcode-scraper {
+  width: 100%;
+}
+
+.leetcode-scraper h2 {
+  margin-top: 0;
+  color: #333;
+  font-size: 1.4rem;
+}
+
+.leetcode-scraper h3 {
+  margin-top: 15px;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.leetcode-scraper .actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.leetcode-scraper button {
+  padding: 8px 15px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s;
+}
+
+.leetcode-scraper button:hover {
+  background-color: #45a049;
+}
+
+.leetcode-scraper button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.leetcode-scraper .error-message {
+  color: #d32f2f;
+  background-color: #ffebee;
+  padding: 10px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.leetcode-scraper .problem-data,
+.leetcode-scraper .user-code,
+.leetcode-scraper .test-results {
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: white;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.leetcode-scraper .content-preview,
+.leetcode-scraper .solution-preview {
+  margin-top: 10px;
+}
+
+.leetcode-scraper pre {
+  background-color: #f5f5f5;
+  padding: 10px;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.leetcode-scraper ul {
+  margin: 5px 0;
+  padding-left: 20px;
+}
+
+.leetcode-scraper li {
+  margin-bottom: 5px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .leetcode-scraper .actions {
+    flex-direction: column;
+  }
+}
+
+/* code display */
+.leetcode-scraper .code-container {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.leetcode-scraper .code-display {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  padding: 15px;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre;
+  border: 1px solid #333;
+  margin-bottom: 10px;
+}
+
+.leetcode-scraper .code-display code {
+  font-family: inherit;
+  white-space: inherit;
+}
+
+.leetcode-scraper .code-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.leetcode-scraper .action-button {
+  background-color: #2c5282;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background-color 0.2s;
+}
+
+.leetcode-scraper .action-button:hover {
+  background-color: #3182ce;
+}
+
+/* code syntax highlight - simplified version */
+.leetcode-scraper .token-keyword {
+  color: #569CD6;
+}
+
+.leetcode-scraper .token-string {
+  color: #CE9178;
+}
+
+.leetcode-scraper .token-comment {
+  color: #6A9955;
+}
+
+.leetcode-scraper .token-number {
+  color: #B5CEA8;
+}
+
+.leetcode-scraper .token-function {
+  color: #DCDCAA;
+}
+
+.leetcode-scraper .token-operator {
+  color: #D4D4D4;
+}
+
+.leetcode-scraper .token-class-name {
+  color: #4EC9B0;
+}
+
+.leetcode-scraper .copy-code-button {
+  background-color: #2c5282;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-bottom: 15px;
+}
+
+.leetcode-scraper .copy-code-button:hover {
+  background-color: #3182ce;
+}
+
+.leetcode-scraper .code-notice {
+  background-color: #fff3cd;
+  border: 1px solid #ffeeba;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 15px;
+  color: #856404;
+  font-size: 0.9rem;
+}
+
+.leetcode-scraper .code-notice p {
+  margin: 0;
+}
+
+.leetcode-scraper .test-display {
+  background-color: #f8f9fa;
+  color: #333;
+  border: 1px solid #e0e0e0;
+  padding: 10px;
+  margin-bottom: 8px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  border-radius: 4px;
+}
+
+.leetcode-scraper .test-cases-list {
+  margin-top: 10px;
+}
+
+.leetcode-scraper .test-case-item {
+  margin-bottom: 12px;
+}
+
+.leetcode-scraper .test-case-item:last-child {
+  margin-bottom: 0;
+}
+
+/* test case display */
+.leetcode-scraper .test-cases-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.leetcode-scraper .test-case-item {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.leetcode-scraper .test-case-header {
+  background-color: #f5f5f5;
+  padding: 8px 12px;
+  font-weight: 600;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.leetcode-scraper .test-display {
+  padding: 12px;
+  background-color: #f9f9f9;
+  border-radius: 0 0 8px 8px;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+.leetcode-scraper .test-display.error {
+  background-color: #fff0f0;
+  color: #d32f2f;
+}
+
+.leetcode-scraper .test-result-status {
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.leetcode-scraper .test-result-status.success {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+}
+
+.leetcode-scraper .test-result-status.failure {
+  background-color: #ffebee;
+  color: #c62828;
+  border: 1px solid #ef9a9a;
+}
+
+.leetcode-scraper .test-errors h4 {
+  margin-bottom: 0.5rem;
+  color: #d32f2f;
+}
+
+.leetcode-scraper .code-notice {
+  background-color: #fffde7;
+  border-left: 4px solid #ffd600;
+  padding: 8px 12px;
+  margin-bottom: 1rem;
+  border-radius: 4px;
+}
+
+.leetcode-scraper .code-notice p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* in the right place */
+.leetcode-scraper .parsed-content {
+  margin-top: 15px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 15px;
+  background-color: #f9fafb;
+}
+
+.leetcode-scraper .parsed-content h4 {
+  margin-top: 15px;
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #374151;
+  font-weight: 600;
+}
+
+.leetcode-scraper .examples .example {
+  margin-bottom: 15px;
+}
+
+.leetcode-scraper .example-code {
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  background-color: #f0f4f8;
+  padding: 12px;
+  border-radius: 4px;
+  border-left: 3px solid #4b5563;
+  overflow-x: auto;
+  white-space: pre;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+.leetcode-scraper .constraints ul {
+  padding-left: 25px;
+}
+
+.leetcode-scraper .constraints li {
+  margin-bottom: 6px;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.leetcode-scraper .follow-up {
+  padding: 10px;
+  background-color: #eff6ff;
+  border-left: 3px solid #3b82f6;
+  border-radius: 4px;
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.leetcode-scraper .solution-preview {
+  margin-top: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 20px;
+  background-color: #f9fafb;
+  overflow: auto;
+  max-height: 500px;
+  line-height: 1.6;
+}
+
+.leetcode-scraper .solution-preview h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: #374151;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 10px;
+}
+
+/* markdown format */
+.leetcode-scraper .solution-preview h3 {
+  font-size: 1.25rem;
+  margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.leetcode-scraper .solution-preview h5,
+.leetcode-scraper .solution-preview h6 {
+  font-size: 1rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: #374151;
+  font-weight: 600;
+}
+
+.leetcode-scraper .solution-preview p {
+  margin: 0.75rem 0;
+  color: #4b5563;
+}
+
+.leetcode-scraper .solution-preview strong {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.leetcode-scraper .solution-preview code {
+  background-color: #f3f4f6;
+  padding: 0.15rem 0.3rem;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+  color: #1e40af;
+}
+
+.leetcode-scraper .solution-preview pre {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  padding: 1rem;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.leetcode-scraper .solution-preview pre code {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+  display: block;
+}
+
+.leetcode-scraper .solution-preview ul, 
+.leetcode-scraper .solution-preview ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.leetcode-scraper .solution-preview li {
+  margin-bottom: 0.5rem;
+}
+
+.leetcode-scraper .solution-preview blockquote {
+  margin: 1rem 0;
+  padding-left: 1rem;
+  border-left: 4px solid #9ca3af;
+  color: #6b7280;
+}
+
+.leetcode-scraper .solution-premium {
+  margin-top: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 15px;
+  background-color: #f9fafb;
+  color: #6b7280;
+}
+
+.leetcode-scraper .solution-premium h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  font-size: 16px;
+  color: #374151;
+  font-weight: 600;
+}
+
+.leetcode-scraper .solution-premium p {
+  margin: 0;
+  font-style: italic;
+}
+
+/* premium content */
+.leetcode-scraper .premium-content {
+  margin-top: 15px;
+  border: 1px solid #ffeeba;
+  border-radius: 6px;
+  padding: 20px;
+  background-color: #fff3cd;
+}
+
+.leetcode-scraper .premium-content h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: #856404;
+  font-weight: 600;
+  border-bottom: 1px solid #ffeeba;
+  padding-bottom: 10px;
+}
+
+.leetcode-scraper .premium-message {
+  color: #856404;
+  line-height: 1.6;
+}
+
+.leetcode-scraper .premium-message a {
+  color: #533f03;
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+.leetcode-scraper .premium-message a:hover {
+  color: #533f03;
+  text-decoration: none;
+}
+
+.leetcode-scraper .premium-question-notice {
+  background-color: #fff3cd;
+  border-left: 4px solid #ffc107;
+  padding: 15px;
+  margin: 15px 0;
+  color: #856404;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+  /* test result */
+.leetcode-scraper .test-results {
+  margin-top: 15px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 15px;
+  background-color: #f9fafb;
+}
+
+.leetcode-scraper .test-results h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: #374151;
+  font-weight: 600;
+}
+
+.leetcode-scraper .test-result-status {
+  padding: 15px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+}
+
+.leetcode-scraper .test-result-status.success {
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+.leetcode-scraper .test-result-status.failure {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+}
+
+.leetcode-scraper .test-result-status strong {
+  font-weight: 600;
+}
+
+.leetcode-scraper .test-details {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.leetcode-scraper .test-details div {
+  margin-bottom: 5px;
+}
+
+.leetcode-scraper .test-result-notice {
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  padding: 15px;
+  color: #1e40af;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Similar Questions section */
+.leetcode-scraper .similar-questions {
+  margin-top: 20px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 15px;
+  background-color: #f9fafb;
+}
+
+.leetcode-scraper .similar-questions h4 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 18px;
+  color: #374151;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 10px;
+}
+
+.leetcode-scraper .similar-question-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.leetcode-scraper .similar-question-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.leetcode-scraper .similar-question-list li:last-child {
+  border-bottom: none;
+}
+
+.leetcode-scraper .similar-question-list a {
+  text-decoration: none;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.leetcode-scraper .similar-question-list a:hover {
+  text-decoration: underline;
+}
+
+.leetcode-scraper .similar-question-list .difficulty-easy {
+  color: #10b981;
+}
+
+.leetcode-scraper .similar-question-list .difficulty-medium {
+  color: #f59e0b;
+}
+
+.leetcode-scraper .similar-question-list .difficulty-hard {
+  color: #ef4444;
+}
+
+.leetcode-scraper .difficulty-badge {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.leetcode-scraper .similar-question-list li:has(.difficulty-easy) .difficulty-badge {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+}
+
+.leetcode-scraper .similar-question-list li:has(.difficulty-medium) .difficulty-badge {
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+}
+
+.leetcode-scraper .similar-question-list li:has(.difficulty-hard) .difficulty-badge {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
 }

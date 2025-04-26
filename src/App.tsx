@@ -1,19 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./App.css";
+import LeetcodeScraper from "./components/LeetcodeScraper";
 
 function App() {
   const [selectedPrompt, setSelectedPrompt] = useState<string>("Explain");
   const [customPromptText, setCustomPromptText] = useState<string>("");
   const [outputText, setOutputText] = useState<string>("");
-
-  const runScraper = () => {
-    console.log("Scraper function called");
-    // Implementation to be added later
-  };
+  // State to show/hide the LeetCode scraper
+  const [showLeetcodeScraper, setShowLeetcodeScraper] = useState<boolean>(false);
+  // State to track copied status for animation
+  const [copied, setCopied] = useState<boolean>(false);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(outputText);
-    alert("Text copied to clipboard!");
+    setCopied(true);
+    
+    // Reset the copied state after 2 seconds
+    setTimeout(() => {
+      setCopied(false);
+    }, 2000);
   };
 
   const openAiService = (service: string) => {
@@ -30,13 +35,24 @@ function App() {
     }
   };
 
+  // Toggle LeetCode scraper visibility
+  const toggleLeetcodeScraper = () => {
+    setShowLeetcodeScraper(!showLeetcodeScraper);
+  };
+
   return (
     <div className="App">
       <div className="scrape-section">
-        <button className="scrape-button" onClick={runScraper}>
-          Scrape
+        <button className="scrape-button" onClick={toggleLeetcodeScraper}>
+          {showLeetcodeScraper ? "Hide LeetCode Tool" : "Show LeetCode Tool"}
         </button>
       </div>
+
+      {showLeetcodeScraper && (
+        <div className="leetcode-scraper-container">
+          <LeetcodeScraper />
+        </div>
+      )}
 
       <div className="prompt-options">
         <h3>Prompt Type</h3>
@@ -75,8 +91,11 @@ function App() {
           onChange={(e) => setOutputText(e.target.value)}
           rows={8}
         />
-        <button className="copy-button" onClick={handleCopy}>
-          Copy
+        <button 
+          className={`copy-button ${copied ? 'copied' : ''}`} 
+          onClick={handleCopy}
+        >
+          {copied ? "Copied!" : "Copy"}
         </button>
       </div>
 
