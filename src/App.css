@@ -91,10 +91,17 @@
   border-radius: 4px;
   padding: 5px 10px;
   cursor: pointer;
+  transition: background-color 0.3s ease, color 0.3s ease; /* Faster, smoother transition */
 }
 
 .copy-button:hover {
   background-color: #e0e0e0;
+}
+
+.copy-button.copied {
+  background-color: #4CAF50; /* Green background */
+  color: white; /* White text */
+  transition: 0.3s ease, 0.3s ease; /* Apply transition on both states */
 }
 
 .ai-services {
