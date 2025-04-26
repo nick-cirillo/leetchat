@@ -1,27 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./App.css";
 import LeetcodeScraper from "./components/LeetcodeScraper";
 
 function App() {
-  // State for the selected prompt type
-  const [selectedPrompt, setSelectedPrompt] = useState<string>("Custom");
-  // State for the custom prompt text
-  const [customPromptText, setCustomPromptText] = useState<string>("");
-  // State for the output text field
-  const [outputText, setOutputText] = useState<string>("");
-
-  // Function to handle prompt type selection and update the output text
-  const handlePromptChange = (promptType: string) => {
-    setSelectedPrompt(promptType);
-    if (promptType === "Custom") {
-      setOutputText(customPromptText); // Use the custom prompt text
-    } else {
-      const promptText = getPromptText(promptType); // Get the prompt text for the selected type
-      console.log(promptText);
-      setOutputText(promptText); // Update the output text
-    }
-  };
-
   // Function to get the prompt text based on the selected option
   const getPromptText = (promptType: string) => {
     switch (promptType) {
@@ -35,6 +16,22 @@ function App() {
         return "Please walk me through the solution to this LeetCode problem. Please focus on the errors in my thinking about the data structures and algorithms. I want to understand the problem and solution thoroughly.";
       default:
         return "";
+    }
+  };
+
+  const [selectedPrompt, setSelectedPrompt] = useState<string>("Explain");
+  const [customPromptText, setCustomPromptText] = useState<string>("");
+  const [outputText, setOutputText] = useState<string>(getPromptText("Explain")); // Initialize with the default prompt text
+
+  // Function to handle prompt type selection and update the output text
+  const handlePromptChange = (promptType: string) => {
+    setSelectedPrompt(promptType);
+    if (promptType === "Custom") {
+      setOutputText(customPromptText); // Use the custom prompt text
+    } else {
+      const promptText = getPromptText(promptType); // Get the prompt text for the selected type
+      console.log(promptText);
+      setOutputText(promptText); // Update the output text
     }
   };
 
@@ -64,10 +61,17 @@ function App() {
   };
   // State to show/hide the LeetCode scraper
   const [showLeetcodeScraper, setShowLeetcodeScraper] = useState<boolean>(false);
+  // State to track copied status for animation
+  const [copied, setCopied] = useState<boolean>(false);
 
-  // Function to handle copying text to clipboard
   const handleCopy = () => {
     navigator.clipboard.writeText(outputText);
+    setCopied(true);
+    
+    // Reset the copied state after 2 seconds
+    setTimeout(() => {
+      setCopied(false);
+    }, 2000);
   };
 
   // Toggle LeetCode scraper visibility
@@ -92,7 +96,7 @@ function App() {
       <div className="prompt-options">
         <h3>Prompt Type</h3>
         <div className="radio-group">
-          {["Custom", "Explain", "Debug", "Solve"].map((promptType) => (
+          {["Explain", "Debug", "Solve", "Custom"].map((promptType) => (
             <label key={promptType} className="radio-label">
               <input
                 type="radio"
@@ -129,15 +133,18 @@ function App() {
           onChange={(e) => setOutputText(e.target.value)}
           rows={8}
         />
-        <button className="copy-button" onClick={handleCopy}>
-          Copy
+        <button 
+          className={`copy-button ${copied ? 'copied' : ''}`} 
+          onClick={handleCopy}
+        >
+          {copied ? "Copied!" : "Copy"}
         </button>
       </div>
 
       <div className="ai-services">
         <h3>Open with:</h3>
         <div className="service-buttons">
-          {["ChatGPT", "Claude", "Gemini", "Deepseek", "Perplexity"].map(
+          {["ChatGPT", "Claude", "Gemini", "Deepseek", "Perplexity", "Grok"].map(
             (service) => (
               <button
                 key={service}
