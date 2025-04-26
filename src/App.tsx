@@ -27,11 +27,11 @@ function App() {
       case "Custom":
         return customPromptText;
       case "Explain":
-        return "Please explain this problem to me without giving me the solution.";
+        return "Please explain this LeetCode problem to me without giving me the solution. Act as if you are a teacher and I am a student. Please explain the problem in detail, including the input and output format, constraints, and any edge cases. Check my understanding of the underlying data structures and algorithms. Please do not give me the solution and show restraint with hints. I want to understand the problem thoroughly.";
       case "Debug":
-        return "Please help me debug my code, identify which test cases are passing/failing.";
+        return "Please help me debug my LeetCode problem code and identify which test cases are passing/failing. Please do not give me the solution and show restraint with hints. I want to understand the problem thoroughly. Please walk me through the debugging process step by step. Focus on the errors in my thinking about the data structures and algorithms.";
       case "Solve":
-        return "Please walk me through the solution.";
+        return "Please walk me through the solution to this LeetCode problem. Please focus on the errors in my thinking about the data structures and algorithms. I want to understand the problem and solution thoroughly.";
       default:
         return "";
     }
@@ -44,6 +44,7 @@ function App() {
       Gemini: "https://gemini.google.com/",
       Deepseek: "https://chat.deepseek.com/",
       Perplexity: "https://www.perplexity.ai/",
+      Grok: "https://grok.com/chat"
     };
   
     if (urls[service]) {
