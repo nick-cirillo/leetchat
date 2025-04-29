@@ -1,7 +1,21 @@
+// change to external module
+export {};
+
 /**
  * LeetCode Data Scraper Content Script
  * This script runs on LeetCode problem pages to scrape page data
  */
+
+// Extend the Window interface to recognize monaco
+declare global {
+  interface Window {
+    monaco: {
+      editor: {
+        getEditors: () => any[];
+      };
+    };
+  }
+}
 
 // Initialization flag to avoid duplicate execution
 let fetchCount = 0;
@@ -37,6 +51,21 @@ function initialize() {
   }, 200);
 }
 
+// Inject external script (injected.js) into the page context using extension URL
+function injectExternalScript() {
+  const script = document.createElement('script');
+  script.src = chrome.runtime.getURL('injected.js');
+  script.onload = () => {
+    console.log('✅ External injected script loaded successfully');
+    script.remove();
+  };
+  script.onerror = (e) => {
+    console.error('❌ Failed to load external injected script:', e);
+    script.remove();
+  };
+  (document.head || document.documentElement).appendChild(script);
+}
+
 // Initialize immediately
 initialize();
 
@@ -52,6 +81,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   if (message.action === 'scrapeLeetcodeData') {
+    // Inject external script to page context to grab Monaco code and post to window
+    injectExternalScript();
+
     Promise.resolve(scrapeLeetcodeData()).then((data: any) => {
       console.log("✅ Entire result object:", data);
       sendResponse(data);
@@ -60,6 +92,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   
   return true;  // Return true to make sendResponse work asynchronously
+});
+
+// Listen for Monaco code sent from injected script
+let injectedMonacoCode: string | null = null;
+let injectedMonacoCodeCallback: ((code: string) => void) | null = null;
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data.type === 'FROM_PAGE_MONACO' && typeof event.data.code === 'string') {
+    console.log('[Injected] Posting code back to content script');
+    console.log('📥 Received code from injected script');
+    injectedMonacoCode = event.data.code;
+
+    if (injectedMonacoCodeCallback) {
+      if (injectedMonacoCode) {
+        injectedMonacoCodeCallback(injectedMonacoCode);
+      } else {
+        console.warn('No code received to pass to the callback');
+      }
+      injectedMonacoCodeCallback = null;
+    }
+  }
 });
 
 // Function to scrape LeetCode page data
@@ -375,325 +429,38 @@ function formatCStyleCode(code: string): string {
   return formattedLines.join('\n');
 }
 
-// Get user code
 function getUserCode(): Promise<string | null> {
   return new Promise((resolve) => {
     fetchCount++;
     console.log(`🧪 getUserCode attempt #${fetchCount}`);
-    const timeout = setTimeout(() => {
-      console.warn('⚠️ getUserCode timeout fallback');
-      resolve(null);
-    }, 3000);
 
-    console.log('Attempting to get user code...');
+    let resolved = false;
 
-    // Function to scroll Monaco editor and extract code with overlap removal logic
-    function scrollEditorAndCapture(): Promise<string> {
-      return new Promise((resolve) => {
-        const scrollEl = document.querySelector('.monaco-scrollable-element') as HTMLElement;
-
-        if (!scrollEl) {
-          console.warn('❌ Could not find .monaco-scrollable-element to scroll');
-          resolve('');
-          return;
-        }
-
-        let scrollTop = 0;
-        const scrollStep = 150;
-        let attempts = 0;
-        const maxAttempts = 30;
-        let repeatCount = 0;
-        const maxRepeats = 5;
-        let previousHash = '';
-        let lastChunk: string[] = [];
-        const capturedLines: string[] = [];
-        const seenLines = new Set<string>();
-        console.log('🧹 Initializing capture session: fresh capturedLines and seenLines');
-        console.log('🔁 capturedLines before scroll:', capturedLines.length);
-        console.log('🔁 seenLines before scroll:', seenLines.size);
-
-        // Reset scroll-related state variables before starting the scroll logic
-        scrollTop = 0;
-        attempts = 0;
-        repeatCount = 0;
-        previousHash = '';
-        lastChunk = [];
-        capturedLines.length = 0;
-        seenLines.clear();
-
-        // Force Monaco to render the top lines using editor.revealLine(1)
-        const editorInstance = (window as any).monaco?.editor?.getEditors?.()?.[0];
-        if (editorInstance?.revealLine) {
-          editorInstance.revealLine(1);
-          console.log("📌 Forced Monaco to render top line using revealLine(1)");
-        }
-        // Fallback: If Monaco API is not available, force DOM-based scroll to top and trigger render
-        if (!editorInstance?.revealLine) {
-          console.log("⚠️ Monaco editorInstance.revealLine not available, applying DOM-only scroll fallback");
-          // Fallback: scroll top and repeatedly trigger scroll events until enough .view-line are rendered
-          scrollEl.scrollTop = 0;
-          scrollEl.dispatchEvent(new Event('scroll'));
-          
-          // Define waitForViewLineRender as a local function expression
-          const waitForViewLineRender = (minLines = 5): Promise<void> => {
-            return new Promise((resolve) => {
-              const check = () => {
-                const lines = document.querySelectorAll('.view-line');
-                if (lines.length >= minLines) {
-                  resolve();
-                } else {
-                  scrollEl.scrollTop = 0;
-                  scrollEl.dispatchEvent(new Event('scroll'));
-                  requestAnimationFrame(check);
-                }
-              };
-              check();
-            });
-          };
-
-          // Wait for view lines to render
-          (async () => {
-            await waitForViewLineRender();
-            console.log("📌 Fallback scroll render: sufficient .view-line nodes detected");
-          })();
-        }
-
-        // Scroll to top and wait for top .view-line nodes to actually render
-        scrollEl.scrollTop = 0;
-        scrollEl.dispatchEvent(new Event('scroll'));
-
-        function waitForInitialLines(minLines = 3): Promise<string[]> {
-          return new Promise((resolve) => {
-            const tryCapture = () => {
-              const viewLineNodes = Array.from(document.querySelectorAll('.view-line'));
-              if (viewLineNodes.length >= minLines) {
-                viewLineNodes.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
-                const lines = viewLineNodes.map(line => line.textContent || '');
-                resolve(lines);
-              } else {
-                requestAnimationFrame(tryCapture);
-              }
-            };
-            tryCapture();
-          });
-        }
-
-        // Wait for initial lines to be rendered before scrolling
-        (async () => {
-          await waitForInitialLines().then((initialLines) => {
-            const uniqueInitialLines = initialLines.filter(line => {
-              if (seenLines.has(line)) return false;
-              seenLines.add(line);
-              return true;
-            });
-
-            capturedLines.push(...uniqueInitialLines);
-            console.log('📌 Initial capture complete. Top lines:', uniqueInitialLines.length);
-          });
-        })();
-
-        function findOverlapEnd(prev: string[], next: string[]): number {
-          const maxOverlap = Math.min(prev.length, next.length);
-          for (let i = maxOverlap; i > 0; i--) {
-            const tailPrev = prev.slice(-i).join('\n');
-            const headNext = next.slice(0, i).join('\n');
-            if (tailPrev === headNext) {
-              return i;
-            }
-          }
-          return 0;
-        }
-
-        const interval = setInterval(() => {
-          scrollTop += scrollStep;
-          scrollEl.scrollTop = scrollTop;
-          attempts++;
-
-          const viewLineNodes = Array.from(document.querySelectorAll('.view-line'));
-          viewLineNodes.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
-          const currentLines = viewLineNodes.map(line => line.textContent || '');
-          const currentChunkHash = btoa(unescape(encodeURIComponent(currentLines.join('\n'))));
-
-          if (currentChunkHash === previousHash) {
-            repeatCount++;
-          } else {
-            repeatCount = 0;
-            previousHash = currentChunkHash;
-
-            const overlap = findOverlapEnd(capturedLines, currentLines);
-            const uniquePart = currentLines.slice(overlap).filter(line => {
-              if (seenLines.has(line)) return false;
-              seenLines.add(line);
-              return true;
-            });
-            capturedLines.push(...uniquePart);
-            lastChunk = currentLines;
-          }
-
-          console.log(`⬇️ Scroll #${attempts}, total lines: ${capturedLines.length}, overlap: ${lastChunk.length - currentLines.length}`);
-
-          const reachedBottom = scrollEl.scrollTop + scrollEl.clientHeight >= scrollEl.scrollHeight;
-          const gaveUp = attempts >= maxAttempts;
-          const tooMuchRepeat = repeatCount >= maxRepeats;
-
-          if (reachedBottom || gaveUp || tooMuchRepeat) {
-            clearInterval(interval);
-            const fullCode = capturedLines.join('\n');
-            console.log('✅ Done scrolling, final code line count:', capturedLines.length);
-            resolve(fullCode);
-          }
-        }, 100);
-      });
-    }
-
-    (async () => {
-      try {
-        // Try to get from Monaco editor
-        if ((window as any).monaco && (window as any).monaco.editor) {
-          const editors = (window as any).monaco?.editor?.getEditors?.();
-          const mainEditor = editors?.find((e: any) => typeof e.getModel === 'function');
-          const model = mainEditor?.getModel?.();
-          if (mainEditor) {
-            const code = mainEditor.getValue();
-            console.log('✅ Got code using Monaco model, skipping scroll');
-            clearTimeout(timeout);
-            resolve(cleanCode(code));
-            return;
-          }
-          if (mainEditor?.getValue) {
-            const code = mainEditor.getValue();
-            console.log('✅ Got code using Monaco editor model');
-
-            // Determine language and apply appropriate formatting
-            if (code && code.includes('class ') && code.includes(':')) {
-              // Python code
-              clearTimeout(timeout);
-              resolve(cleanPythonCode(code));
-              return;
-            } else if (code && code.includes('class ') && code.includes('{') && code.includes('public')) {
-              // Java code
-              clearTimeout(timeout);
-              resolve(cleanJavaCode(code));
-              return;
-            } else if (code && (code.includes('#include') || (code.includes('int ') && code.includes('{')))) {
-              // C/C++ code
-              clearTimeout(timeout);
-              resolve(cleanCppCode(code));
-              return;
-            }
-
-            clearTimeout(timeout);
-            resolve(code);
-            return;
-          }
-        }
-
-        // Try to identify the code editing area
-        // Specific selectors for LeetCode's new UI
-        const codeAreaSelectors = [
-          // Main editor area
-          '.monaco-editor',
-          // CodeMirror editor
-          '.CodeMirror',
-          // Code submission area
-          '.code-area',
-          '.code-editor',
-          '[data-cy="code-editor"]',
-          // Possible selectors for Chinese version
-          '.editor-wrapper'
-        ];
-
-        // Try to find the code editing area element
-        let editorElement = null;
-        for (const selector of codeAreaSelectors) {
-          const element = document.querySelector(selector);
-          if (element) {
-            console.log(`Found code editing area: ${selector}`);
-            editorElement = element;
-            break;
-          }
-        }
-
-        if (editorElement) {
-          // If it's a CodeMirror editor
-          if (editorElement.classList.contains('CodeMirror') || editorElement.querySelector('.CodeMirror')) {
-            const cm = (editorElement as any).CodeMirror ||
-              (editorElement.querySelector('.CodeMirror') as any)?.CodeMirror;
-            if (cm && typeof cm.getValue === 'function') {
-              const code = cm.getValue();
-              console.log('Successfully got code from CodeMirror editor');
-              clearTimeout(timeout);
-              resolve(cleanCode(code));
-              return;
-            }
-          }
-
-          // Fallback: Scroll Monaco editor and capture code
-          const fallbackCode = await scrollEditorAndCapture();
-          if (fallbackCode) {
-            console.log('⚠️ Using fallback scroll method to get code');
-            console.log('✅ Got fallback full code via scroll');
-            console.log("🧪 Raw captured code before cleaning:", fallbackCode);
-            clearTimeout(timeout);
-            resolve(cleanCode(fallbackCode));
-            return;
-          }
-
-          // Try the DOM approach
-          const codeElements = editorElement.querySelectorAll('textarea, [role="code"], .view-lines, .ace_content');
-          for (const el of Array.from(codeElements)) {
-            const text = el.textContent || (el as HTMLTextAreaElement).value;
-            if (text && isValidCode(text)) {
-              console.log('Successfully got code from editor child element');
-              clearTimeout(timeout);
-              resolve(cleanCode(text));
-              return;
-            }
-          }
-        }
-
-        // Try to find pre-submitted code blocks
-        const preElements = document.querySelectorAll('pre');
-        for (const pre of Array.from(preElements)) {
-          // Check if it's code and not test results
-          const preText = pre.textContent || '';
-          // Check if it's a test case
-          const isTestCase = [/Input:.*Output:/i, /Example\s+\d+:/i, /^\s*输入：.*输出：/m, /^\s*示例\s*\d+：/m]
-            .some(pattern => pattern.test(preText));
-
-          if (preText && isValidCode(preText) && !isTestCase) {
-            console.log('Successfully got code from pre element');
-            clearTimeout(timeout);
-            resolve(cleanCode(preText));
-            return;
-          }
-        }
-
-        // Finally try to find all possible code in the page
-        const allPossibleCodeElements = document.querySelectorAll('.CodeMirror-code, .ace_content, .monaco-editor textarea');
-        for (const el of Array.from(allPossibleCodeElements)) {
-          const text = el.textContent;
-          // Check if it's a test case
-          const isTestCase = [/Input:.*Output:/i, /Example\s+\d+:/i]
-            .some(pattern => pattern.test(text || ''));
-
-          if (text && isValidCode(text) && !isTestCase) {
-            console.log('Successfully got code from generic code element');
-            clearTimeout(timeout);
-            resolve(cleanCode(text));
-            return;
-          }
-        }
-
-        console.log('Could not get code through any method');
-        clearTimeout(timeout);
-        resolve(null);
-      } catch (error) {
-        console.error('Error getting user code:', error);
-        clearTimeout(timeout);
+    // Set fallback timer
+    const fallbackTimeout = setTimeout(async () => {
+      if (resolved) return;
+      console.warn('⚠️ Monaco injected code not received in time, using fallback scroll');
+      const fallbackCode = await scrollEditorAndCapture();
+      if (fallbackCode) {
+        console.log('⚠️ Using fallback scroll method to get code');
+        console.log('✅ Got fallback full code via scroll');
+        resolved = true;
+        resolve(cleanCode(fallbackCode));
+      } else {
+        console.warn('❌ Fallback scroll method failed to get code');
+        resolved = true;
         resolve(null);
       }
-    })();
+    }, 2000); // wait 2 seconds for injected code first
+
+    // ✅ Listen for injected Monaco code if it comes
+    injectedMonacoCodeCallback = (code: string) => {
+      if (resolved) return;
+      console.log('✅ Received Monaco code via callback');
+      clearTimeout(fallbackTimeout);
+      resolved = true;
+      resolve(cleanCode(code));
+    };
   });
 }
 
@@ -1068,4 +835,44 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
     console.log('DOM content loaded, initializing Content Script');
     initialize();
   });
-} 
+}
+async function scrollEditorAndCapture(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const editorContainer = document.querySelector('.monaco-editor');
+    if (!editorContainer) {
+      console.warn('⚠️ Monaco editor container not found');
+      resolve(null);
+      return;
+    }
+
+    const editorContent = editorContainer.querySelector('.view-lines');
+    if (!editorContent) {
+      console.warn('⚠️ Monaco editor content not found');
+      resolve(null);
+      return;
+    }
+
+    const scrollHeight = editorContainer.scrollHeight;
+    const clientHeight = editorContainer.clientHeight;
+    let currentScrollTop = 0;
+    let capturedCode = '';
+
+    const scrollAndCapture = () => {
+      editorContainer.scrollTop = currentScrollTop;
+      const visibleCode = Array.from(editorContent.querySelectorAll('.view-line'))
+        .map((line) => line.textContent?.trim() || '')
+        .join('\n');
+      capturedCode += visibleCode + '\n';
+
+      if (currentScrollTop + clientHeight >= scrollHeight) {
+        console.log('✅ Finished scrolling and capturing code');
+        resolve(capturedCode.trim());
+      } else {
+        currentScrollTop += clientHeight;
+        setTimeout(scrollAndCapture, 100); // Delay to allow scrolling
+      }
+    };
+
+    scrollAndCapture();
+  });
+}
