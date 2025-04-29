@@ -190,16 +190,6 @@
   margin-bottom: 15px;
 }
 
-.leetcode-scraper .problem-data,
-.leetcode-scraper .user-code,
-.leetcode-scraper .test-results {
-  margin-bottom: 15px;
-  padding: 10px;
-  background-color: white;
-  border-radius: 4px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
 .leetcode-scraper .content-preview,
 .leetcode-scraper .solution-preview {
   margin-top: 10px;
@@ -785,4 +775,64 @@
 .leetcode-scraper .similar-question-list li:has(.difficulty-hard) .difficulty-badge {
   background-color: rgba(239, 68, 68, 0.1);
   color: #ef4444;
+}
+
+/* Collapsible section styles */
+.collapsible-section {
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  background-color: white;
+  overflow: hidden;
+}
+
+.collapsible-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #f6f8fa;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.collapsible-header:hover {
+  background-color: #eaecef;
+}
+
+.collapsible-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #24292e;
+}
+
+.collapsible-icon {
+  font-size: 12px;
+  color: #586069;
+  transition: transform 0.2s ease;
+}
+
+.collapsible-header.open .collapsible-icon {
+  transform: rotate(0deg);
+}
+
+.collapsible-header.closed .collapsible-icon {
+  transform: rotate(90deg);
+}
+
+.collapsible-content {
+  padding: 15px;
+  border-top: 1px solid #e1e4e8;
+}
+
+/* Move these existing styles to apply to the content inside collapsible sections */
+.leetcode-scraper .problem-data,
+.leetcode-scraper .user-code,
+.leetcode-scraper .test-results {
+  margin-bottom: 0;
+  padding: 0;
+  background-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
 }

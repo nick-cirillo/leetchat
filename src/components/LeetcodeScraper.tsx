@@ -1,6 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { LeetcodeAPI } from '../services/leetcodeAPI';
 
+// Collapsible component for sections
+const Collapsible: React.FC<{ 
+  title: string; 
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+  className?: string;
+}> = ({ title, children, defaultOpen = false, className = '' }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  
+  return (
+    <div className={`collapsible-section ${className}`}>
+      <div 
+        className={`collapsible-header ${isOpen ? 'open' : 'closed'}`} 
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <h3>{title}</h3>
+        <span className="collapsible-icon">▼</span>
+      </div>
+      {isOpen && <div className="collapsible-content">{children}</div>}
+    </div>
+  );
+};
+
 interface SimilarQuestion {
   title: string;
   titleSlug: string;
@@ -1254,8 +1277,7 @@ const LeetcodeScraper: React.FC = () => {
       )}
 
       {problemData && (
-        <div className="problem-data">
-          <h3>Problem Information</h3>
+        <Collapsible title="Problem Information" className="problem-data">
           <div>
             <strong>ID:</strong> {problemData.questionFrontendId}
           </div>
@@ -1279,16 +1301,12 @@ const LeetcodeScraper: React.FC = () => {
             </div>
           ) : problemData.parsedContent ? (
             <div className="parsed-content">
-              {problemData.parsedContent.description && (
-                <div className="description">
-                  <h4>Description</h4>
-                  <div dangerouslySetInnerHTML={{ __html: problemData.parsedContent.description }} />
-                </div>
-              )}
+              <Collapsible title="Description" className="description">
+                <div dangerouslySetInnerHTML={{ __html: problemData.parsedContent.description }} />
+              </Collapsible>
               
               {problemData.parsedContent.examples && problemData.parsedContent.examples.length > 0 && (
-                <div className="examples">
-                  <h4>Examples</h4>
+                <Collapsible title="Examples" className="examples">
                   {problemData.parsedContent.examples.map((example, index) => (
                     <div key={index} className="example">
                       <strong>Example {index + 1}:</strong>
@@ -1304,21 +1322,19 @@ const LeetcodeScraper: React.FC = () => {
                       </pre>
                     </div>
                   ))}
-                </div>
+                </Collapsible>
               )}
               
               {problemData.parsedContent.constraints && (
-                <div className="constraints">
-                  <h4>Constraints</h4>
+                <Collapsible title="Constraints" className="constraints">
                   <div dangerouslySetInnerHTML={{ __html: problemData.parsedContent.constraints }} />
-                </div>
+                </Collapsible>
               )}
               
               {problemData.parsedContent.followUp && (
-                <div className="follow-up">
-                  <h4>Follow-up</h4>
+                <Collapsible title="Follow-up" className="follow-up">
                   <p>{problemData.parsedContent.followUp}</p>
-                </div>
+                </Collapsible>
               )}
             </div>
           ) : (
@@ -1329,10 +1345,9 @@ const LeetcodeScraper: React.FC = () => {
           )}
 
           {!problemData.isPremium && problemData.solution && problemData.solution.content && (
-            <div className="solution-preview">
-              <h4>Official Solution</h4>
+            <Collapsible title="Official Solution" className="solution-preview">
               <SolutionDisplay content={problemData.solution.content} />
-            </div>
+            </Collapsible>
           )}
 
           {!problemData.isPremium && !problemData.solution?.content && (
@@ -1345,33 +1360,11 @@ const LeetcodeScraper: React.FC = () => {
               )}
             </div>
           )}
-
-          {problemData.parsedSimilarQuestions && problemData.parsedSimilarQuestions.length > 0 && (
-            <div className="similar-questions">
-              <h4>Similar Questions</h4>
-              <ul className="similar-question-list">
-                {problemData.parsedSimilarQuestions.map((question, index) => (
-                  <li key={index}>
-                    <a 
-                      href={`https://leetcode.com/problems/${question.titleSlug}/`} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className={`difficulty-${question.difficulty.toLowerCase()}`}
-                    >
-                      {question.title}
-                    </a>
-                    <span className="difficulty-badge">{question.difficulty}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        </Collapsible>
       )}
 
       {problemData?.userCode && (
-        <div className="user-code">
-          <h3>User Code</h3>
+        <Collapsible title="User Code" className="user-code">
           <div className="code-notice">
             <p>⚠️ Note: Currently only Java and Python code formatting is fully supported, other languages may display incorrectly</p>
           </div>
@@ -1409,12 +1402,11 @@ const LeetcodeScraper: React.FC = () => {
               </code>
             </pre>
           </div>
-        </div>
+        </Collapsible>
       )}
 
       {problemData && (
-        <div className="test-results">
-          <h3>Test Results</h3>
+        <Collapsible title="Test Results" className="test-results">
           {problemData.testResult ? (
             <div className={`test-result-status ${problemData.testResult.success ? 'success' : 'failure'}`}>
               <strong>Status:</strong> {problemData.testResult.status}
@@ -1434,7 +1426,7 @@ const LeetcodeScraper: React.FC = () => {
               <p>Run your code in LeetCode to see test results here.</p>
             </div>
           )}
-        </div>
+        </Collapsible>
       )}
     </div>
   );
