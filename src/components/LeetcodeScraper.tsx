@@ -1,6 +1,85 @@
 import React, { useEffect, useState } from 'react';
 import { LeetcodeAPI } from '../services/leetcodeAPI';
 
+// Add this function to format problem data as plaintext
+const formatProblemAsPlainText = (problemData: ProblemData): string => {
+  if (!problemData) return '';
+  
+  let text = '';
+  
+  // Basic problem info
+  text += `Problem #${problemData.questionFrontendId}: ${problemData.title}\n`;
+  text += `Difficulty: ${problemData.difficulty}\n`;
+  text += `Tags: ${problemData.topicTags.map(tag => tag.name).join(', ')}\n\n`;
+  
+  // Description
+  if (problemData.isPremium) {
+    text += "Description: This is a premium problem that requires a LeetCode subscription.\n\n";
+  } else if (problemData.parsedContent) {
+    // Strip HTML tags from description
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = problemData.parsedContent.description;
+    text += `Description: ${tempDiv.textContent}\n\n`;
+    
+    // Examples
+    if (problemData.parsedContent.examples && problemData.parsedContent.examples.length > 0) {
+      text += "Examples:\n";
+      problemData.parsedContent.examples.forEach((example, index) => {
+        text += `Example ${index + 1}:\n`;
+        text += `Input: ${example.input}\n`;
+        text += `Output: ${example.output}\n`;
+        if (example.explanation) {
+          text += `Explanation: ${example.explanation}\n`;
+        }
+        text += "\n";
+      });
+    }
+    
+    // Constraints
+    if (problemData.parsedContent.constraints) {
+      text += "Constraints:\n";
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = problemData.parsedContent.constraints;
+      const constraints = tempDiv.textContent?.trim() || '';
+      text += `${constraints}\n\n`;
+    }
+    
+    // Follow-up
+    if (problemData.parsedContent.followUp) {
+      text += `Follow-up: ${problemData.parsedContent.followUp}\n\n`;
+    }
+  } else {
+    // Fallback if parsedContent is not available
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = problemData.content;
+    text += `Description: ${tempDiv.textContent}\n\n`;
+  }
+  
+  // User code if available
+  if (problemData.userCode) {
+    text += "User Code:\n```\n";
+    text += problemData.userCode;
+    text += "\n```\n\n";
+  }
+  
+  // Test results if available
+  if (problemData.testResult) {
+    text += "Test Results:\n";
+    text += `Status: ${problemData.testResult.status}\n`;
+    if (problemData.testResult.details) {
+      if (problemData.testResult.details.runtime) {
+        text += `Runtime: ${problemData.testResult.details.runtime}\n`;
+      }
+      if (problemData.testResult.details.memory) {
+        text += `Memory: ${problemData.testResult.details.memory}\n`;
+      }
+    }
+    text += "\n";
+  }
+  
+  return text;
+};
+
 // Collapsible component for sections
 const Collapsible: React.FC<{ 
   title: string; 
@@ -67,12 +146,11 @@ interface ProblemData {
   parsedSimilarQuestions?: SimilarQuestion[];
 }
 
-const LeetcodeScraper: React.FC = () => {
+const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({ onScrapedData }) => {
   const [titleSlug, setTitleSlug] = useState<string>('');
   const [problemData, setProblemData] = useState<ProblemData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [exported, setExported] = useState<boolean>(false);
 
   // On component mount, retrieve saved data from storage or optionally clear cache
   useEffect(() => {
@@ -112,6 +190,14 @@ const LeetcodeScraper: React.FC = () => {
       chrome.storage.onChanged.removeListener(handleStorageChange);
     };
   }, []);
+
+  // Add an effect to format and send data to parent whenever problemData changes
+  useEffect(() => {
+    if (problemData && onScrapedData) {
+      const formattedData = formatProblemAsPlainText(problemData);
+      onScrapedData(formattedData);
+    }
+  }, [problemData, onScrapedData]);
 
   // Check if content script is loaded and inject it into the page
   const ensureContentScriptLoaded = async (tabId: number): Promise<boolean> => {
@@ -469,55 +555,6 @@ const LeetcodeScraper: React.FC = () => {
       return [];
     }
   }
-
-  // Export data as a JSON file
-  const exportData = () => {
-    if (!problemData) return;
-
-    const data = {
-      problem: {
-        id: problemData.questionFrontendId,
-        title: problemData.title,
-        content: problemData.content,
-        difficulty: problemData.difficulty,
-        tags: problemData.topicTags.map(tag => tag.name)
-      },
-      parsedContent: problemData.parsedContent || null,
-      solution: {
-        official: problemData.solution?.content 
-          ? {
-              raw: problemData.solution.content,
-              formatted: formatSolution(problemData.solution.content)
-            }
-          : "Premium subscription required to view the solution",
-        userCode: problemData.userCode || null
-      },
-      testResult: problemData.testResult || null,
-      similarQuestions: problemData.parsedSimilarQuestions || []
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `leetcode-${problemData.questionFrontendId}-${problemData.title.replace(/\s+/g, '-').toLowerCase()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    // Show success message
-    setExported(true);
-    setTimeout(() => setExported(false), 3000);
-  };
-
-  // Clear saved data
-  const clearData = () => {
-    chrome.storage.local.remove('leetcodeData', () => {
-      setProblemData(null);
-    });
-  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -1227,46 +1264,30 @@ const LeetcodeScraper: React.FC = () => {
     );
   };
 
+  // Add useEffect to automatically scrape data when component mounts
+  useEffect(() => {
+    // Auto-fetch data when component first loads
+    scrapeCurrentPage();
+  }, []); // Empty dependency array means this runs once when component mounts
+
   return (
     <div className="leetcode-scraper">
       <h2>LeetCode Data Scraper</h2>
       
       <div className="actions">
+        {/* Always show refresh button (without conditional) */}
         <button 
-          onClick={scrapeCurrentPage} 
+          onClick={() => {
+            // Force refresh to get the latest data
+            chrome.storage.local.remove('leetcodeData', () => {
+              console.log('Cache cleared, fetching fresh data');
+              scrapeCurrentPage();
+            });
+          }}
           disabled={isLoading}
+          title="Force refresh to get the latest data"
         >
-          {isLoading ? 'Loading...' : 'Fetch Current Problem Data'}
-        </button>
-        
-        {problemData && (
-          <button 
-            onClick={() => {
-              // Force refresh to get the latest data
-              chrome.storage.local.remove('leetcodeData', () => {
-                console.log('Cache cleared, fetching fresh data');
-                scrapeCurrentPage();
-              });
-            }}
-            disabled={isLoading}
-            title="Force refresh to get the latest data"
-          >
-            Refresh Data
-          </button>
-        )}
-        
-        <button 
-          onClick={exportData} 
-          disabled={!problemData || isLoading}
-        >
-          {exported ? 'Exported!' : 'Export Data'}
-        </button>
-
-        <button 
-          onClick={clearData} 
-          disabled={!problemData || isLoading}
-        >
-          Clear Data
+          {isLoading ? 'Loading...' : 'Refresh Data'}
         </button>
       </div>
 

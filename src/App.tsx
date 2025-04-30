@@ -22,16 +22,20 @@ function App() {
   const [selectedPrompt, setSelectedPrompt] = useState<string>("Explain");
   const [customPromptText, setCustomPromptText] = useState<string>("");
   const [outputText, setOutputText] = useState<string>(getPromptText("Explain")); // Initialize with the default prompt text
+  const [scrapedContent, setScrapedContent] = useState<string>("");
 
   // Function to handle prompt type selection and update the output text
   const handlePromptChange = (promptType: string) => {
     setSelectedPrompt(promptType);
     if (promptType === "Custom") {
-      setOutputText(customPromptText); // Use the custom prompt text
+      // For custom prompt, first use just the custom text
+      const baseText = customPromptText;
+      // Then append scraped content if available - PUT PROMPT LAST
+      setOutputText(scrapedContent ? `${scrapedContent}\n\n${baseText}` : baseText);
     } else {
-      const promptText = getPromptText(promptType); // Get the prompt text for the selected type
-      console.log(promptText);
-      setOutputText(promptText); // Update the output text
+      const promptText = getPromptText(promptType);
+      // Append scraped content if available - PUT PROMPT LAST
+      setOutputText(scrapedContent ? `${scrapedContent}\n\n${promptText}` : promptText);
     }
   };
 
@@ -52,15 +56,31 @@ function App() {
     }
   };
 
-  // Function to handle scraping and appending the prompt
-  const runScraper = () => {
-    console.log("Scraper function called");
-    const scrapedContent = "Scraped content goes here."; // Placeholder for scraped content
-    const promptText = getPromptText(selectedPrompt);
-    setOutputText(`${promptText}\n\n"""${scrapedContent}"""`);
+  // Function to handle the scraped content from LeetcodeScraper
+  const handleScrapedData = (data: any) => {
+    if (!data) {
+      setScrapedContent("");
+      return;
+    }
+    
+    setScrapedContent(data);
+    
+    // Update the output text with the new scraped content - PUT PROMPT LAST
+    const promptText = selectedPrompt === "Custom" ? customPromptText : getPromptText(selectedPrompt);
+    setOutputText(`${data}\n\n${promptText}`); // Changed order here - data first, prompt last
   };
+
+  // Update the custom prompt text and output if in custom mode
+  const handleCustomPromptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setCustomPromptText(newValue);
+    if (selectedPrompt === "Custom") {
+      setOutputText(scrapedContent ? `${scrapedContent}\n\n${newValue}` : newValue);
+    }
+  };
+
   // State to show/hide the LeetCode scraper
-  const [showLeetcodeScraper, setShowLeetcodeScraper] = useState<boolean>(false);
+  const [showLeetcodeScraper, setShowLeetcodeScraper] = useState<boolean>(true);
   // State to track copied status for animation
   const [copied, setCopied] = useState<boolean>(false);
 
@@ -74,24 +94,12 @@ function App() {
     }, 2000);
   };
 
-  // Toggle LeetCode scraper visibility
-  const toggleLeetcodeScraper = () => {
-    setShowLeetcodeScraper(!showLeetcodeScraper);
-  };
-
   return (
     <div className="App">
-      <div className="scrape-section">
-        <button className="scrape-button" onClick={toggleLeetcodeScraper}>
-          {showLeetcodeScraper ? "Hide LeetCode Tool" : "Show LeetCode Tool"}
-        </button>
+      {/* Always show the LeetcodeScraper by default */}
+      <div className="leetcode-scraper-container">
+        <LeetcodeScraper onScrapedData={handleScrapedData} />
       </div>
-
-      {showLeetcodeScraper && (
-        <div className="leetcode-scraper-container">
-          <LeetcodeScraper />
-        </div>
-      )}
 
       <div className="prompt-options">
         <h3>Prompt Type</h3>
@@ -109,6 +117,14 @@ function App() {
             </label>
           ))}
         </div>
+        
+        {/* Display prompt text for non-custom options */}
+        {selectedPrompt !== "Custom" && (
+          <div className="selected-prompt-display">
+            <h4>Selected Prompt:</h4>
+            <p>{getPromptText(selectedPrompt)}</p>
+          </div>
+        )}
       </div>
 
       {selectedPrompt === "Custom" && (
@@ -116,10 +132,7 @@ function App() {
           <textarea
             placeholder="Enter your custom prompt..."
             value={customPromptText}
-            onChange={(e) => {
-              setCustomPromptText(e.target.value);
-              setOutputText(e.target.value); // Update output text as the user types
-            }}
+            onChange={handleCustomPromptChange}
             rows={3}
           />
         </div>
@@ -131,7 +144,8 @@ function App() {
           placeholder="Extracted code/text will appear here..."
           value={outputText}
           onChange={(e) => setOutputText(e.target.value)}
-          rows={8}
+          rows={10}
+          readOnly={false}
         />
         <button 
           className={`copy-button ${copied ? 'copied' : ''}`} 
