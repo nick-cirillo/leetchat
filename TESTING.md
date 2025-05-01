@@ -15,7 +15,7 @@ With the user code, this is a JavaScript embedding - but it is ultimately wrappi
 ### Approach
 
 - Manual  
-- We conduct manual testing specifically for the scraper component, as LeetCode requires user authentication to access submitted code and test results. Automating this process with Playwright is currently unreliable — even with JavaScript-based login scripts, LeetCode frequently detects automated Chromium sessions as bots and restricts access. Due to this limitation, end-to-end automation is not feasible at the moment for authenticated interactions. We are aware of this issue and plan to implement a workaround or fix within the next few days, potentially involving authenticated sessions with preloaded cookies。
+- We conduct manual testing specifically for the scraper component, as LeetCode requires user authentication to access submitted code and test results. Automating this process with Playwright is currently unreliable — even with JavaScript-based login scripts, LeetCode frequently detects automated Chromium sessions as bots and restricts access. Due to this limitation, end-to-end automation is not feasible at the moment for authenticated interactions. We are aware of this issue and plan to implement a workaround or fix within the next few days, potentially involving authenticated sessions with preloaded cookies.
 
 ### Details
 - We already tested the following cases:

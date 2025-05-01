@@ -678,12 +678,11 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
             const outputIndex = section.indexOf('Output:');
             const explanationIndex = section.indexOf('Explanation:');
             
-            // 下一个边界
+            // next example or constraints
             const nextExampleIndex = section.indexOf('Example ', 1);
             const constraintsIndex = section.indexOf('Constraints:');
             
             if (inputIndex !== -1 && outputIndex !== -1) {
-              // 提取内容
               let input = '';
               let output = '';
               let explanation = '';
