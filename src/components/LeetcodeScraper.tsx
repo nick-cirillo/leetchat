@@ -144,6 +144,11 @@ interface ProblemData {
   } | null;
   similarQuestions?: string;
   parsedSimilarQuestions?: SimilarQuestion[];
+  testCases?: {
+    Input: Record<string, string>;
+    Output: string[];
+    Expected: string[];
+  };
 }
 
 const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({ onScrapedData }) => {
@@ -341,39 +346,39 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
                   ...problemData,
                   userCode: null,
                   testResult: null,
-                  timestamp: Date.now() // Add timestamp to ensure data is always fresh
+                  timestamp: Date.now()
                 };
-                
                 chrome.storage.local.set({ leetcodeData: completeData }, () => {
                   setProblemData(completeData);
                   setIsLoading(false);
                 });
                 return;
               }
-              
+
               // Extract user code and test result
               const userCode = data?.userCode || null;
               console.log('User code received from content script:', userCode ? `Length: ${userCode.length}` : 'No user code');
               if (userCode) {
                 console.log('First 100 chars of user code:', userCode.substring(0, 100));
               }
-              
+
               const testResult = data?.testResult || null;
-              
-              // Merge available data
+
+              // Merge available data, include testCases if present
               const completeData = {
                 ...problemData,
                 userCode,
                 testResult,
-                timestamp: Date.now() // Add timestamp to ensure data is always fresh
+                testCases: data?.testCases || undefined,
+                timestamp: Date.now()
               };
-  
+
               console.log('Complete data to save to storage:', JSON.stringify({
                 hasUserCode: !!completeData.userCode,
                 userCodeLength: completeData.userCode ? completeData.userCode.length : 0,
                 hasTestResult: !!completeData.testResult,
               }));
-  
+
               // Save to storage
               chrome.storage.local.set({ leetcodeData: completeData }, () => {
                 console.log('Data saved to storage, updating state');
@@ -1312,6 +1317,27 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
               <p>Run your code in LeetCode to see test results here.</p>
             </div>
           )}
+          {/* Render testCases only if at least one case has non-empty Input/Output/Expected */}
+          {problemData.testCases &&
+            Array.isArray(problemData.testCases) &&
+            problemData.testCases.some(
+              tc =>
+                (tc.Input && Object.keys(tc.Input || {}).length > 0) ||
+                (tc.Output && tc.Output.length > 0) ||
+                (tc.Expected && tc.Expected.length > 0)
+            ) && (
+              <div className="test-cases-section">
+                <h3 style={{ fontSize: '1.1rem' }}>Test Cases</h3>
+                {problemData.testCases.map((tc, index) => (
+                  <div key={index} className="test-case-block">
+                    <h4 style={{ fontSize: '1rem', marginTop: '0.75rem' }}>Case {index + 1}</h4>
+                    <pre className="test-cases-pre">
+                      {JSON.stringify(tc, null, 2)}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            )}
         </Collapsible>
       )}
     </div>

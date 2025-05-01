@@ -117,7 +117,7 @@ window.addEventListener('message', (event) => {
 });
 
 // Function to scrape LeetCode page data
-function scrapeLeetcodeData() {
+async function scrapeLeetcodeData() {
   try {
     // Check if the page is a LeetCode problem page
     if (!window.location.href.includes('leetcode.com/problems/') && 
@@ -142,12 +142,15 @@ function scrapeLeetcodeData() {
         
         // Get test result status
         const testResult = getTestResultStatus();
+        // Extract test case data
+        const testCases = await extractAllTestCases();
         
         const result = {
           titleSlug,
           currentUrl: window.location.href,
           userCode,
-          testResult
+          testResult,
+          testCases
         };
         
         console.log('🔍 Complete data object ready to return:', JSON.stringify(result).substring(0, 200) + '...');
@@ -875,4 +878,78 @@ async function scrollEditorAndCapture(): Promise<string | null> {
 
     scrollAndCapture();
   });
+}
+
+// Extract LeetCode test case data from the DOM
+function extractTestCaseData() {
+  const result: {
+    Input: Record<string, string>,
+    Output: string[],
+    Expected: string[]
+  } = {
+    Input: {},
+    Output: [],
+    Expected: []
+  };
+
+  let currentSection: "Input" | "Output" | "Expected" | null = null;
+  let currentVar: string | null = null;
+
+  const elements = Array.from(document.querySelectorAll('.text-label-3, .font-menlo'));
+
+  elements.forEach(el => {
+    const text = el.textContent?.trim() || "";
+
+    if (["Input", "Output", "Expected"].includes(text)) {
+      currentSection = text as "Input" | "Output" | "Expected";
+      currentVar = null;
+      return;
+    }
+
+    if (currentSection === "Input") {
+      if (el.classList.contains("text-label-3")) {
+        currentVar = text.replace("=", "").trim();
+      } else if (el.classList.contains("font-menlo") && currentVar) {
+        result.Input[currentVar] = text;
+      }
+    } else if (currentSection && ["Output", "Expected"].includes(currentSection)) {
+      if (el.classList.contains("font-menlo")) {
+        result[currentSection].push(text);
+      }
+    }
+  });
+
+  return result;
+}
+
+// Extract all visible test cases by clicking each "Case" tab and extracting the data
+async function extractAllTestCases() {
+  // Select all visible case tabs that start with "Case"
+  const tabSelector = "div.cursor-pointer";
+  const caseTabs = Array.from(document.querySelectorAll(tabSelector)).filter(
+    el => el.textContent && el.textContent.trim().startsWith("Case")
+  );
+  if (caseTabs.length === 0) {
+    console.log("[extractAllTestCases] No case tabs found, falling back to current test case only.");
+    return [extractTestCaseData()];
+  }
+  console.log(`[extractAllTestCases] Found ${caseTabs.length} case tabs.`);
+  const allCases: any[] = [];
+  for (let i = 0; i < caseTabs.length; i++) {
+    const tab = caseTabs[i] as HTMLElement;
+    // Only click if not already active/selected
+    if (!tab.getAttribute("aria-selected") || tab.getAttribute("aria-selected") === "false") {
+      tab.click();
+      console.log(`[extractAllTestCases] Clicked tab ${i + 1}/${caseTabs.length}: "${tab.textContent?.trim()}"`);
+      // Wait for DOM to update
+      await new Promise(res => setTimeout(res, 200));
+    } else {
+      console.log(`[extractAllTestCases] Tab ${i + 1} already selected.`);
+    }
+    // Extract test case data for this tab
+    const data = extractTestCaseData();
+    allCases.push(data);
+    console.log(`[extractAllTestCases] Extracted data for tab ${i + 1}:`, data);
+  }
+  return allCases;
 }
