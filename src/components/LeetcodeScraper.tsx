@@ -144,6 +144,11 @@ interface ProblemData {
   } | null;
   similarQuestions?: string;
   parsedSimilarQuestions?: SimilarQuestion[];
+  testCases?: {
+    Input: Record<string, string>;
+    Output: string[];
+    Expected: string[];
+  };
 }
 
 const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({ onScrapedData }) => {
@@ -341,39 +346,39 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
                   ...problemData,
                   userCode: null,
                   testResult: null,
-                  timestamp: Date.now() // Add timestamp to ensure data is always fresh
+                  timestamp: Date.now()
                 };
-                
                 chrome.storage.local.set({ leetcodeData: completeData }, () => {
                   setProblemData(completeData);
                   setIsLoading(false);
                 });
                 return;
               }
-              
+
               // Extract user code and test result
               const userCode = data?.userCode || null;
               console.log('User code received from content script:', userCode ? `Length: ${userCode.length}` : 'No user code');
               if (userCode) {
                 console.log('First 100 chars of user code:', userCode.substring(0, 100));
               }
-              
+
               const testResult = data?.testResult || null;
-              
-              // Merge available data
+
+              // Merge available data, include testCases if present
               const completeData = {
                 ...problemData,
                 userCode,
                 testResult,
-                timestamp: Date.now() // Add timestamp to ensure data is always fresh
+                testCases: data?.testCases || undefined,
+                timestamp: Date.now()
               };
-  
+
               console.log('Complete data to save to storage:', JSON.stringify({
                 hasUserCode: !!completeData.userCode,
                 userCodeLength: completeData.userCode ? completeData.userCode.length : 0,
                 hasTestResult: !!completeData.testResult,
               }));
-  
+
               // Save to storage
               chrome.storage.local.set({ leetcodeData: completeData }, () => {
                 console.log('Data saved to storage, updating state');
@@ -600,49 +605,48 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
     descriptionNodes.forEach(node => descDiv.appendChild(node));
     description = descDiv.innerHTML;
 
-    // Extract examples - more complex logic to handle different formats
+    // Extract examples with a unified approach
     const examples = [];
     
-    // Method 1: Look for pre tags
-    const preElements = tempDiv.querySelectorAll('pre');
-    for (const preEl of Array.from(preElements)) {
-      const text = preEl.textContent || '';
+    // Unified example extraction function, tries from the most accurate to the most general method
+    const extractExamples = (): { input: string; output: string; explanation?: string }[] => {
+      const result: { input: string; output: string; explanation?: string }[] = [];
       
-      const inputMatch = text.match(/Input:?\s*(.*?)(?=Output:|$)/i);
-      const outputMatch = text.match(/Output:?\s*(.*?)(?=Explanation:|$)/i);
-      const explanationMatch = text.match(/Explanation:?\s*(.*?)$/i);
+      // Try method 1: Extract directly from pre tags
+      const tryPreTags = () => {
+        const preElements = tempDiv.querySelectorAll('pre');
+        for (const preEl of Array.from(preElements)) {
+          const text = preEl.textContent || '';
+          
+          const inputMatch = text.match(/Input:?\s*(.*?)(?=Output:|$)/i);
+          const outputMatch = text.match(/Output:?\s*(.*?)(?=Explanation:|$)/i);
+          const explanationMatch = text.match(/Explanation:?\s*(.*?)$/i);
+          
+          if (inputMatch && outputMatch) {
+            result.push({
+              input: inputMatch[1].trim(),
+              output: outputMatch[1].trim(),
+              explanation: explanationMatch ? explanationMatch[1].trim() : undefined
+            });
+          }
+        }
+      };
       
-      if (inputMatch && outputMatch) {
-        examples.push({
-          input: inputMatch[1].trim(),
-          output: outputMatch[1].trim(),
-          explanation: explanationMatch ? explanationMatch[1].trim() : undefined
-        });
-      }
-    }
-
-    // Method 2: If no examples found, try to find child elements of the example section
-    if (examples.length === 0) {
-      // Find all example sections
-      const exampleTexts: string[] = [];
-      const allElements = Array.from(tempDiv.querySelectorAll('*'));
-      
-      for (let i = 0; i < allElements.length; i++) {
-        const element = allElements[i];
-        const text = element.textContent || '';
+      // Try method 2: Use HTML structure to find example sections
+      const tryStructuredExamples = () => {
+        // Find all elements whose text is "Example X:"
+        const exampleTitles = Array.from(tempDiv.querySelectorAll('*')).filter(
+          el => el.textContent?.match(/Example\s+\d+:/) || el.textContent?.includes('Example:')
+        );
         
-        // Check if it's an example title
-        if (text.includes('Example') && text.includes(':') && 
-            (text.match(/Example\s+\d+:/) || text.includes('Example:'))) {
-          
-          // Find content after the example
+        for (const title of exampleTitles) {
           let exampleContent = '';
-          let nextElement = element.nextElementSibling;
+          let nextElement = title.nextElementSibling;
           
-          // Collect all content until the next example or constraints
+          // Collect until the next example or constraints section
           while (nextElement && 
-                 !nextElement.textContent?.includes('Example') && 
-                 !nextElement.textContent?.includes('Constraints')) {
+                !nextElement.textContent?.includes('Example') && 
+                !nextElement.textContent?.includes('Constraints')) {
             
             if (nextElement.tagName === 'PRE') {
               exampleContent += nextElement.textContent || '';
@@ -651,146 +655,85 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
           }
           
           if (exampleContent) {
-            exampleTexts.push(exampleContent);
+            const inputMatch = exampleContent.match(/Input:?\s*(.*?)(?=Output:|$)/i);
+            const outputMatch = exampleContent.match(/Output:?\s*(.*?)(?=Explanation:|$)/i);
+            const explanationMatch = exampleContent.match(/Explanation:?\s*(.*?)$/i);
+            
+            if (inputMatch && outputMatch) {
+              result.push({
+                input: inputMatch[1].trim(),
+                output: outputMatch[1].trim(),
+                explanation: explanationMatch ? explanationMatch[1].trim() : undefined
+              });
+            }
           }
         }
-      }
+      };
       
-      // Process the collected example texts
-      for (const exampleText of exampleTexts) {
-        const inputMatch = exampleText.match(/Input:?\s*(.*?)(?=Output:|$)/i);
-        const outputMatch = exampleText.match(/Output:?\s*(.*?)(?=Explanation:|$)/i);
-        const explanationMatch = exampleText.match(/Explanation:?\s*(.*?)$/i);
+      // Try method 3: Use text analysis
+      const tryTextAnalysis = () => {
+        const fullText = tempDiv.textContent || '';
+        const exampleSections = fullText.split(/Example\s+\d+:/);
         
-        if (inputMatch && outputMatch) {
-          examples.push({
-            input: inputMatch[1].trim(),
-            output: outputMatch[1].trim(),
-            explanation: explanationMatch ? explanationMatch[1].trim() : undefined
-          });
-        }
-      }
-    }
-    
-    // Method 3: If still no examples found, search for keywords in paragraphs
-    if (examples.length === 0) {
-      console.log('Trying method 3 to extract examples');
-      const htmlContent = tempDiv.innerHTML;
-      
-      // Use regex to extract example sections
-      const exampleRegex = /<strong[^>]*>Example\s*\d+:?<\/strong>[\s\S]*?<pre>[\s\S]*?<\/pre>/gi;
-      const exampleMatches = htmlContent.match(exampleRegex);
-      
-      if (exampleMatches) {
-        for (const exampleMatch of exampleMatches) {
-          const tempExampleDiv = document.createElement('div');
-          tempExampleDiv.innerHTML = exampleMatch;
-          
-          const preContent = tempExampleDiv.querySelector('pre')?.textContent || '';
-          
-          const inputMatch = preContent.match(/Input:?\s*(.*?)(?=Output:|$)/i);
-          const outputMatch = preContent.match(/Output:?\s*(.*?)(?=Explanation:|$)/i);
-          const explanationMatch = preContent.match(/Explanation:?\s*(.*?)$/i);
-          
-          if (inputMatch && outputMatch) {
-            examples.push({
-              input: inputMatch[1].trim(),
-              output: outputMatch[1].trim(),
-              explanation: explanationMatch ? explanationMatch[1].trim() : undefined
-            });
-          }
-        }
-      }
-    }
-    
-    // Method 4: Extract examples directly from original text content
-    if (examples.length === 0) {
-      console.log('Trying method 4 to extract examples');
-      const fullText = tempDiv.textContent || '';
-      
-      // Find all example sections
-      const exampleSections = fullText.split(/Example\s+\d+:/);
-      
-      // Skip the first part (it's the description)
-      if (exampleSections.length > 1) {
-        for (let i = 1; i < exampleSections.length; i++) {
-          const section = exampleSections[i];
-          
-          // Extract input, output and explanation - using simple string processing instead of complex regex
-          const inputIndex = section.indexOf('Input:');
-          const outputIndex = section.indexOf('Output:');
-          const explanationIndex = section.indexOf('Explanation:');
-          
-          // Determine next boundary
-          const nextExampleIndex = section.indexOf('Example ', 1);
-          const constraintsIndex = section.indexOf('Constraints:');
-          
-          if (inputIndex !== -1 && outputIndex !== -1) {
-            // Extract content
-            let input = '';
-            let output = '';
-            let explanation = '';
+        if (exampleSections.length > 1) {
+          for (let i = 1; i < exampleSections.length; i++) {
+            const section = exampleSections[i];
+            
+            const inputIndex = section.indexOf('Input:');
+            const outputIndex = section.indexOf('Output:');
+            const explanationIndex = section.indexOf('Explanation:');
+            
+            // next example or constraints
+            const nextExampleIndex = section.indexOf('Example ', 1);
+            const constraintsIndex = section.indexOf('Constraints:');
             
             if (inputIndex !== -1 && outputIndex !== -1) {
+              let input = '';
+              let output = '';
+              let explanation = '';
+              
               input = section.substring(inputIndex + 'Input:'.length, outputIndex).trim();
-            }
-            
-            if (outputIndex !== -1) {
+              
               const endOfOutput = explanationIndex !== -1 ? explanationIndex : 
-                                  nextExampleIndex !== -1 ? nextExampleIndex : 
-                                  constraintsIndex !== -1 ? constraintsIndex : 
-                                  section.length;
+                                 nextExampleIndex !== -1 ? nextExampleIndex : 
+                                 constraintsIndex !== -1 ? constraintsIndex : 
+                                 section.length;
               output = section.substring(outputIndex + 'Output:'.length, endOfOutput).trim();
+              
+              if (explanationIndex !== -1) {
+                const endOfExplanation = nextExampleIndex !== -1 ? nextExampleIndex : 
+                                        constraintsIndex !== -1 ? constraintsIndex : 
+                                        section.length;
+                explanation = section.substring(explanationIndex + 'Explanation:'.length, endOfExplanation).trim();
+              }
+              
+              result.push({
+                input: input.replace(/\n+/g, ' ').trim(),
+                output: output.replace(/\n+/g, ' ').trim(),
+                explanation: explanation ? explanation.replace(/\n+/g, ' ').trim() : undefined
+              });
             }
-            
-            if (explanationIndex !== -1) {
-              const endOfExplanation = nextExampleIndex !== -1 ? nextExampleIndex : 
-                                      constraintsIndex !== -1 ? constraintsIndex : 
-                                      section.length;
-              explanation = section.substring(explanationIndex + 'Explanation:'.length, endOfExplanation).trim();
-            }
-            
-            // Create example object
-            examples.push({
-              input: input.replace(/\n+/g, ' ').trim(),
-              output: output.replace(/\n+/g, ' ').trim(),
-              explanation: explanation ? explanation.replace(/\n+/g, ' ').trim() : undefined
-            });
           }
         }
-      }
-    }
+      };
+      
+      // Try each method in turn, return as soon as examples are found
+      tryPreTags();
+      if (result.length > 0) return result;
+      
+      tryStructuredExamples();
+      if (result.length > 0) return result;
+      
+      tryTextAnalysis();
+      return result;
+    };
     
-    // Method 5: Find "Input" and "Output" patterns in text content
-    if (examples.length === 0) {
-      console.log('Trying method 5 to extract examples');
-      
-      // Create a new parser using plain text
-      const textContent = tempDiv.textContent || '';
-      
-      // Extract all Input-Output pairs
-      const inputOutputPairs = [];
-      const inputRegex = /Input:?\s*([^\n]*)/gi;
-      let inputMatch;
-      
-      while ((inputMatch = inputRegex.exec(textContent)) !== null) {
-        const inputStart = inputMatch.index;
-        const inputContent = inputMatch[1];
-        
-        // Find output after the input
-        const remainingText = textContent.substring(inputStart);
-        const outputMatch = remainingText.match(/Output:?\s*([^\n]*)/i);
-        
-        if (outputMatch) {
-          inputOutputPairs.push({
-            input: inputContent.trim(),
-            output: outputMatch[1].trim()
-          });
-        }
-      }
-      
-      // Add found input-output pairs
-      examples.push(...inputOutputPairs);
+    // Extract and store examples
+    const extractedExamples = extractExamples();
+    if (extractedExamples.length > 0) {
+      examples.push(...extractedExamples);
+    } else {
+      console.log('No examples found using standard extraction methods');
     }
 
     // Extract constraints
@@ -799,46 +742,148 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
     let followUp = '';
     let followUpStarted = false;
     
-    // Look for constraints section
+    // create a helper function to extract html content
+    const extractHtmlContent = (node: Node, sectionName: string): string => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        // for ul, ol, p
+        if (node.nodeName === 'UL' || node.nodeName === 'OL' || node.nodeName === 'P') {
+          return (node as Element).outerHTML;
+        } else {
+          const content = (node as Element).innerHTML;
+          // Remove section header and format
+          let formattedContent = content.replace(new RegExp(`${sectionName}:?`, 'i'), '').trim();
+          // Ensure space before math symbols
+          formattedContent = formattedContent.replace(/(\S)O\(/g, '$1 O(');
+          return formattedContent;
+        }
+      } else if (node.nodeType === Node.TEXT_NODE && node.textContent) {
+        // Remove section header and format
+        let formattedContent = node.textContent.replace(new RegExp(`${sectionName}:?`, 'i'), '').trim();
+        // Ensure space before math symbols
+        formattedContent = formattedContent.replace(/(\S)O\(/g, '$1 O(');
+        return formattedContent;
+      }
+      return '';
+    };
+    
+    // Helper to format math content
+    const formatMathContent = (content: string): string => {
+      if (!content) return content;
+      
+      // Remove redundant colons
+      let formatted = content.replace(/:\s*:/g, ':');
+      
+      // Remove leading colons (ensure colon is removed)
+      formatted = formatted.replace(/^:\s*/g, '');  // Remove leading colon
+      
+      // Ensure space before math symbols
+      formatted = formatted.replace(/(\S)O\(/g, '$1 O(');
+      
+      // Fix spacing between "less than" and "O(n²)"
+      formatted = formatted.replace(/less than(\s*)O\(/gi, 'less than O(');
+      formatted = formatted.replace(/less\s+thanO\(/gi, 'less than O(');
+      
+      // Other common math expression fixes
+      formatted = formatted.replace(/≤(\S)/g, '≤ $1');
+      formatted = formatted.replace(/≥(\S)/g, '≥ $1');
+      
+      return formatted;
+    };
+    
+    // More efficiently extract and format node content
+    const extractSectionContent = (node: Node, sectionType: 'constraints' | 'followup'): string => {
+      const sectionName = sectionType === 'constraints' ? 'Constraints' : 'Follow-up|Follow up';
+      let content = '';
+      
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        // For UL/OL/P nodes, keep full HTML
+        if (node.nodeName === 'UL' || node.nodeName === 'OL' || node.nodeName === 'P') {
+          content = (node as Element).outerHTML;
+        } else {
+          // For other nodes, get inner HTML
+          content = (node as Element).innerHTML;
+          
+          // Remove header text
+          if (sectionType === 'followup') {
+            content = content.replace(/Follow-up:|Follow up:|进阶:/gi, '').trim();
+          } else {
+            content = content.replace(/Constraints:|限制:/gi, '').trim();
+          }
+        }
+      } else if (node.nodeType === Node.TEXT_NODE && node.textContent) {
+        // For text nodes
+        content = node.textContent;
+        
+        // Remove header text
+        if (sectionType === 'followup') {
+          content = content.replace(/Follow-up:|Follow up:|进阶:/gi, '').trim();
+        } else {
+          content = content.replace(/Constraints:|限制:/gi, '').trim();
+        }
+      }
+      
+      // Apply formatting, ensure correct display
+      return content ? formatMathContent(content) : '';
+    };
+    
+    // Look for constraints and follow-up sections
     for (const node of Array.from(tempDiv.childNodes)) {
       const text = node.textContent || '';
       
       // Check if it's the start of constraints section
       if (text.includes('Constraints:') || text.includes('限制:')) {
         constraintsStarted = true;
+        followUpStarted = false;
+        // Use common function to handle content
+        const content = extractSectionContent(node, 'constraints');
+        if (content) constraints += content;
         continue;
       }
       
       // Check if it's the start of follow-up section
-      if (text.includes('Follow-up:') || text.includes('Follow up:') || text.includes('进阶:')) {
+      if (text.includes('Follow-up:') || text.includes('Follow up:') ) {
         constraintsStarted = false;
         followUpStarted = true;
-        
-        // Extract follow-up content
-        const followUpMatch = text.match(/Follow-up:?(.*?)$|Follow up:?(.*?)$/i);
-        if (followUpMatch) {
-          followUp = (followUpMatch[1] || followUpMatch[2] || '').trim();
-        } else {
-          // If regex doesn't match, use the entire text
-          followUp = text;
-        }
+        // Use common function to handle content
+        const content = extractSectionContent(node, 'followup');
+        if (content) followUp += content;
         continue;
       }
       
-      // If in constraints section, add content
-      if (constraintsStarted && node.nodeName === 'UL') {
-        const ulElement = node as Element;
-        constraints += ulElement.outerHTML || '';
+      // Use common function to handle ongoing extracted section
+      if (constraintsStarted) {
+        const content = extractSectionContent(node, 'constraints');
+        if (content) constraints += content;
       }
       
-      // If in follow-up section, continue adding content
-      if (followUpStarted && !followUp && text.trim()) {
-        followUp += text;
+      if (followUpStarted) {
+        const content = extractSectionContent(node, 'followup');
+        if (content) followUp += content;
       }
+    }
+
+    // Wrap content to ensure it's valid HTML
+    if (constraints && !constraints.startsWith('<')) {
+      constraints = `<div>${constraints}</div>`;
+    }
+    
+    if (followUp && !followUp.startsWith('<')) {
+      followUp = `<div>${followUp}</div>`;
+    }
+    
+    // Final formatting for the whole content
+    if (followUp) {
+      // Replace redundant colons with spaces
+      followUp = followUp.replace(/(^|>):\s*/g, '$1');
+      // Ensure space between "less than" and "O(n2)"
+      followUp = followUp.replace(/less than(\s*)O\(/gi, 'less than O(');
+      followUp = followUp.replace(/less\s+thanO\(/gi, 'less than O(');
     }
 
     // Debug output
     console.log("Parsed examples:", examples);
+    console.log("Constraints:", constraints ? "Found" : "Not found");
+    console.log("Follow-up:", followUp ? "Found" : "Not found");
     
     return {
       description,
@@ -929,191 +974,114 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
     if (!content) return '';
     
     try {
-      // Remove TOC section
-      let formatted = content.replace(/\[TOC\]/g, '');
-      
-      // Print original content for debugging
-      console.log("Original solution content (first 200 chars):", formatted.substring(0, 200));
-      
-      // Handle various possible video section formats
-      const videoPatterns = [
-        /## Video Solution[\s\S]*?(?=## Solution|## Solution Article|## Overview|## Approach)/i,
-        /## Official Solution[\s\S]*?(?=## Solution Article|## Overview|## Approach)/i,
-        /## Solution Video[\s\S]*?(?=## Solution|## Solution Article|## Overview|## Approach)/i
-      ];
-      
-      for (const pattern of videoPatterns) {
-        if (pattern.test(formatted)) {
-          formatted = formatted.replace(
-            pattern,
-            '## Video\n\nBecause of privacy settings, video content cannot be displayed here.\n\n'
-          );
-          break;
+      // Create a general formatting function
+      const applyContentProcessing = (text: string, patterns: RegExp[], replacement: string): string => {
+        let result = text;
+        for (const pattern of patterns) {
+          if (pattern.test(result)) {
+            result = result.replace(pattern, replacement);
+          }
         }
-      }
-      
-      // Multiple pattern matching to ensure all Implementation-related content is removed
-      const implementationPatterns = [
-        // Match from ## Implementation to the next ## heading
-        /(## Implementation[\s\S]*?)(?=## |$)/i,
-        
-        // Match from ### Implementation to the next ### or ## heading
-        /(### Implementation[\s\S]*?)(?=### |## |$)/i,
-        
-        // Match from # Implementation to the next # heading
-        /(# Implementation[\s\S]*?)(?=# |$)/i,
-        
-        // Match any part with Implementation heading
-        /(?:# |## |### )Implementation.*?(?=(?:# |## |### )|$)/gi,
-        
-        // Match Code section
-        /(?:# |## |### )Code[\s\S]*?(?=(?:# |## |### )|$)/gi,
-        
-        // Match Java implementation section
-        /(?:# |## |### )Java[\s\S]*?(?=(?:# |## |### )|$)/gi,
-        
-        // Match Python implementation section
-        /(?:# |## |### )Python[\s\S]*?(?=(?:# |## |### )|$)/gi,
-        
-        // Match C++ implementation section
-        /(?:# |## |### )C\+\+[\s\S]*?(?=(?:# |## |### )|$)/gi
-      ];
-      
-      // Apply all patterns
-      for (const pattern of implementationPatterns) {
-        formatted = formatted.replace(pattern, '');
-      }
-      
-      // Remove any potentially remaining "refused to connect" content
-      formatted = formatted.replace(
-        /<div[^>]*>[\s\S]*?leetcode\.com refused to connect[\s\S]*?<\/div>/gi,
-        ''
-      );
-      
-      formatted = formatted.replace(
-        /leetcode\.com refused to connect\./gi,
-        ''
-      );
-      
-      // Process standalone code blocks, but avoid replacing code examples in algorithm explanations
-      const codeBlockPattern = /```[\s\S]*?```/g;
-      // Special handling sections where code blocks should not be replaced
-      const exemptSections = [
-        'Intuition', 'Algorithm', 'Approach', 'Example', 
-        'Explanation', 'Idea', 'Analysis', 'Insight'
-      ];
-      
-      // Check if a code block is in an exempt section
-      const isInExemptSection = (position: number, text: string): boolean => {
-        // Find the nearest section heading before the code block position
-        const textBefore = text.substring(0, position);
-        const lastSectionMatch = textBefore.match(/(?:# |## |### )([^#\n]+)(?:\n|$)/i);
-        
-        if (lastSectionMatch) {
-          const sectionTitle = lastSectionMatch[1].trim();
-          // Check if this section title is in the exempt list
-          return exemptSections.some(exempt => 
-            sectionTitle.toLowerCase().includes(exempt.toLowerCase())
-          );
-        }
-        return false;
+        return result;
       };
       
-      // Replace standalone code blocks not in exempt sections
-      let lastIndex = 0;
-      let match;
-      let result = '';
-      const codeBlockRegex = /```[\s\S]*?```/g;
-      
-      while ((match = codeBlockRegex.exec(formatted)) !== null) {
-        if (!isInExemptSection(match.index, formatted)) {
-          // Replace this code block with nothing (complete removal)
-          result += formatted.substring(lastIndex, match.index);
-          // We don't add any placeholder div here, just skip the code block
-        } else {
-          // Keep code blocks in exempt sections
-          result += formatted.substring(lastIndex, match.index + match[0].length);
-        }
-        lastIndex = match.index + match[0].length;
-      }
-      
-      // Add remaining text
-      if (lastIndex < formatted.length) {
-        result += formatted.substring(lastIndex);
-      }
-      
-      // Only replace if matches were found
-      if (result) {
-        formatted = result;
-      }
-      
-      // Remove images and Figure markings (various possible formats)
-      const imagePatterns = [
-        /!\[(.*?)\][\s\S]*?\*Figure[\s\S]*?\*(?:\n+##?)?/g,
-        /!\[(.*?)\]\((.*?)\)/g,
-        /!\?!.*?!\?!/g,
-        /<img[\s\S]*?>/g
-      ];
-      
-      for (const pattern of imagePatterns) {
-        formatted = formatted.replace(
-          pattern,
-          '<div class="image-placeholder">Image not available in extension</div>'
+      // Remove extra content and clean up format
+      const cleanupContent = (text: string): string => {
+        // Basic cleanup
+        let result = text.replace(/\[TOC\]/g, '')
+                        .replace(/\r\n/g, '\n')
+                        .replace(/---/g, '')
+                        .replace(/##(?!\s)/g, '')
+                        .replace(/\*\*\*+/g, '');
+        
+        // Remove video section
+        result = applyContentProcessing(
+          result,
+          [
+            /## Video Solution[\s\S]*?(?=## Solution|## Solution Article|## Overview|## Approach)/i,
+            /## Official Solution[\s\S]*?(?=## Solution Article|## Overview|## Approach)/i,
+            /## Solution Video[\s\S]*?(?=## Solution|## Solution Article|## Overview|## Approach)/i
+          ],
+          '## Video\n\nBecause of privacy settings, video content cannot be displayed here.\n\n'
         );
-      }
+        
+        // Remove implementation section
+        const implementationPatterns = [
+          /(## Implementation[\s\S]*?)(?=## |$)/i,
+          /(### Implementation[\s\S]*?)(?=### |## |$)/i,
+          /(# Implementation[\s\S]*?)(?=# |$)/i,
+          /(?:# |## |### )Implementation.*?(?=(?:# |## |### )|$)/gi,
+          /(?:# |## |### )Code[\s\S]*?(?=(?:# |## |### )|$)/gi,
+          /(?:# |## |### )Java[\s\S]*?(?=(?:# |## |### )|$)/gi,
+          /(?:# |## |### )Python[\s\S]*?(?=(?:# |## |### )|$)/gi,
+          /(?:# |## |### )C\+\+[\s\S]*?(?=(?:# |## |### )|$)/gi
+        ];
+        
+        for (const pattern of implementationPatterns) {
+          result = result.replace(pattern, '');
+        }
+        
+        // Remove "refused to connect" content
+        result = result.replace(/<div[^>]*>[\s\S]*?leetcode\.com refused to connect[\s\S]*?<\/div>/gi, '')
+                      .replace(/leetcode\.com refused to connect\./gi, '');
+        
+        return result;
+      };
       
-      // Remove all iframe elements to prevent CSP errors
-      formatted = formatted.replace(
-        /<iframe[\s\S]*?<\/iframe>/gi,
-        '<div class="iframe-placeholder">Interactive code playground not available in extension</div>'
-      );
-      
-      // Remove div containers that might have held iframes
-      formatted = formatted.replace(
-        /<div[^>]*class="video-container"[^>]*>[\s\S]*?<\/div>/gi,
-        '<div class="video-placeholder">Video content not available in extension</div>'
-      );
-      
-      // Remove all dividers and special markings
-      formatted = formatted.replace(/---/g, '');
-      formatted = formatted.replace(/##(?!\s)/g, '');
-      formatted = formatted.replace(/\*\*\*+/g, ''); // Remove multiple asterisks dividers
-      
-      // Handle heading formats
-      formatted = formatted.replace(/##\s+(.*?)(?:\n|$)/g, '<h2>$1</h2>');
-      formatted = formatted.replace(/###\s+(.*?)(?:\n|$)/g, '<h3>$1</h3>');
-      formatted = formatted.replace(/#\s+(.*?)(?:\n|$)/g, '<h4>$1</h4>');
-      
-      // Handle bold text
-      formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      
-      // Handle italics (image captions)
-      formatted = formatted.replace(/\*(Figure[\s\S]*?)\*/g, '');
-      formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
-      
-      // Handle math expressions and special symbols
-      formatted = formatted.replace(/\$\$(.*?)\$\$/g, '<code>$1</code>');
-      formatted = formatted.replace(/\$(.*?)\$/g, '<code>$1</code>');
-      formatted = formatted.replace(/\\le/g, '≤');
-      formatted = formatted.replace(/\\cdot/g, '·');
-      formatted = formatted.replace(/\\log/g, 'log');
-      formatted = formatted.replace(/\\text\{([^}]*)\}/g, '$1');
-      
-      // Format inline code with backticks
-      formatted = formatted.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
-      
-      // Handle code blocks
-      formatted = formatted.replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
-        return `<pre class="code-block${lang ? ` language-${lang}` : ''}"><code>${code.trim()}</code></pre>`;
-      });
-      
-      // Handle list items
-      formatted = formatted.replace(/^\* (.*?)$/gm, '<li>$1</li>');
-      formatted = formatted.replace(/^- (.*?)$/gm, '<li>$1</li>');
-      formatted = formatted.replace(/^(\d+)\. (.*?)$/gm, '<li>$1. $2</li>');
-      
-      // Handle paragraphs
-      formatted = formatted.replace(/\n\n/g, '</p><p>');
+      // Format HTML elements
+      const formatHtmlElements = (text: string): string => {
+        let result = text;
+        
+        // Handle images and iframes
+        result = result.replace(/!\[(.*?)\][\s\S]*?\*Figure[\s\S]*?\*(?:\n+##?)?/g, 
+                               '<div class="image-placeholder">Image not available in extension</div>')
+                      .replace(/!\[(.*?)\]\((.*?)\)/g, 
+                               '<div class="image-placeholder">Image not available in extension</div>')
+                      .replace(/!\?!.*?!\?!/g, 
+                               '<div class="image-placeholder">Image not available in extension</div>')
+                      .replace(/<img[\s\S]*?>/g, 
+                               '<div class="image-placeholder">Image not available in extension</div>')
+                      .replace(/<iframe[\s\S]*?<\/iframe>/gi, 
+                               '<div class="iframe-placeholder">Interactive code playground not available in extension</div>')
+                      .replace(/<div[^>]*class="video-container"[^>]*>[\s\S]*?<\/div>/gi, 
+                               '<div class="video-placeholder">Video content not available in extension</div>');
+        
+        // Handle headings and formatting
+        result = result.replace(/##\s+(.*?)(?:\n|$)/g, '<h2>$1</h2>')
+                      .replace(/###\s+(.*?)(?:\n|$)/g, '<h3>$1</h3>')
+                      .replace(/#\s+(.*?)(?:\n|$)/g, '<h4>$1</h4>')
+                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                      .replace(/\*(Figure[\s\S]*?)\*/g, '')
+                      .replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        // Handle math expressions
+        result = result.replace(/\$\$(.*?)\$\$/g, '<code>$1</code>')
+                      .replace(/\$(.*?)\$/g, '<code>$1</code>')
+                      .replace(/\\le/g, '≤')
+                      .replace(/\\cdot/g, '·')
+                      .replace(/\\log/g, 'log')
+                      .replace(/\\text\{([^}]*)\}/g, '$1');
+        
+        // Handle code blocks
+        result = result.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+                      .replace(/```(\w+)?\n([\s\S]*?)```/g, (match, lang, code) => {
+                        return `<pre class="code-block${lang ? ` language-${lang}` : ''}"><code>${code.trim()}</code></pre>`;
+                      });
+        
+        // Handle lists
+        result = result.replace(/^\* (.*?)$/gm, '<li>$1</li>')
+                      .replace(/^- (.*?)$/gm, '<li>$1</li>')
+                      .replace(/^(\d+)\. (.*?)$/gm, '<li>$1. $2</li>');
+        
+        // Handle paragraphs
+        result = result.replace(/\n\n/g, '</p><p>');
+        
+        return result;
+      };
+            
+      // Perform main formatting steps
+      let formatted = cleanupContent(content);
+      formatted = formatHtmlElements(formatted);
       
       // Add basic styles
       formatted = `
@@ -1123,70 +1091,18 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
             line-height: 1.6;
             color: #333;
           }
-          .solution-content h2 {
-            margin-top: 1.8em;
-            margin-bottom: 0.8em;
-            font-size: 1.4em;
-            color: #1a1a1a;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 0.3em;
-          }
-          .solution-content h3 {
-            margin-top: 1.5em;
-            margin-bottom: 0.5em;
-            font-size: 1.2em;
-            color: #333;
-          }
-          .solution-content h4 {
-            margin-top: 1.2em;
-            margin-bottom: 0.5em;
-            font-size: 1.1em;
-            color: #333;
-          }
-          .solution-content p {
-            margin: 0.8em 0;
-            line-height: 1.6;
-          }
-          .solution-content code {
-            background-color: #f6f8fa;
-            padding: 0.2em 0.4em;
-            border-radius: 3px;
-            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
-            font-size: 0.9em;
-          }
-          .solution-content .inline-code {
-            background-color: #f0f0f0;
-            color: #e83e8c;
-            padding: 0.1em 0.3em;
-            border-radius: 3px;
-            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
-            font-size: 0.9em;
-            white-space: nowrap;
-          }
-          .solution-content pre {
-            background-color: #f6f8fa;
-            padding: 1em;
-            border-radius: 6px;
-            overflow-x: auto;
-            margin: 1em 0;
-          }
-          .solution-content pre code {
-            background-color: transparent;
-            padding: 0;
-            font-size: 0.9em;
-          }
-          .solution-content li {
-            margin: 0.5em 0;
-          }
-          .solution-content ul, .solution-content ol {
-            padding-left: 2em;
-            margin: 0.8em 0;
-          }
-          .solution-content strong {
-            font-weight: 600;
-            color: #000;
-          }
-          .solution-content .image-placeholder, .solution-content .code-placeholder {
+          .solution-content h2 { margin-top: 1.8em; margin-bottom: 0.8em; font-size: 1.4em; color: #1a1a1a; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+          .solution-content h3 { margin-top: 1.5em; margin-bottom: 0.5em; font-size: 1.2em; color: #333; }
+          .solution-content h4 { margin-top: 1.2em; margin-bottom: 0.5em; font-size: 1.1em; color: #333; }
+          .solution-content p { margin: 0.8em 0; line-height: 1.6; }
+          .solution-content code { background-color: #f6f8fa; padding: 0.2em 0.4em; border-radius: 3px; font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.9em; }
+          .solution-content .inline-code { background-color: #f0f0f0; color: #e83e8c; padding: 0.1em 0.3em; border-radius: 3px; font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.9em; white-space: nowrap; }
+          .solution-content pre { background-color: #f6f8fa; padding: 1em; border-radius: 6px; overflow-x: auto; margin: 1em 0; }
+          .solution-content pre code { background-color: transparent; padding: 0; font-size: 0.9em; }
+          .solution-content li { margin: 0.5em 0; }
+          .solution-content ul, .solution-content ol { padding-left: 2em; margin: 0.8em 0; }
+          .solution-content strong { font-weight: 600; color: #000; }
+          .solution-content .image-placeholder, .solution-content .code-placeholder, .solution-content .iframe-placeholder, .solution-content .video-placeholder {
             background-color: #f1f1f1;
             border: 1px dashed #ccc;
             color: #666;
@@ -1194,53 +1110,7 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
             padding: 2em 1em;
             margin: 1em 0;
             border-radius: 4px;
-          }
-          .solution-content .code-placeholder {
-            background-color: #f8f8f8;
-          }
-          .solution-content .iframe-placeholder,
-          .solution-content .video-placeholder {
-            background-color: #f0f0f0;
-            border: 1px dashed #aaa;
-            color: #666;
-            text-align: center;
-            padding: 2em 1em;
-            margin: 1em 0;
-            border-radius: 4px;
             font-style: italic;
-          }
-          .implementation-message {
-            background-color: #f8f8f8;
-            border: 1px solid #e1e4e8;
-            border-radius: 6px;
-            padding: 1em;
-            margin: 1em 0;
-            text-align: center;
-            color: #666;
-          }
-          .connection-error {
-            background-color: #fff8f8;
-            border: 1px solid #ffdce0;
-            color: #86181d;
-            border-radius: 4px;
-            padding: 1em;
-            margin: 1em 0;
-            text-align: center;
-            font-style: italic;
-          }
-          .language-tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-top: 10px;
-          }
-          .language-tab {
-            background-color: #e1e4e8;
-            color: #24292e;
-            padding: 5px 10px;
-            border-radius: 4px;
-            font-size: 0.9em;
-            font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
           }
         </style>
         <div class="solution-content"><p>${formatted}</p></div>
@@ -1354,7 +1224,7 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
               
               {problemData.parsedContent.followUp && (
                 <Collapsible title="Follow-up" className="follow-up">
-                  <p>{problemData.parsedContent.followUp}</p>
+                  <div dangerouslySetInnerHTML={{ __html: problemData.parsedContent.followUp }} />
                 </Collapsible>
               )}
             </div>
@@ -1447,6 +1317,27 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
               <p>Run your code in LeetCode to see test results here.</p>
             </div>
           )}
+          {/* Render testCases only if at least one case has non-empty Input/Output/Expected */}
+          {problemData.testCases &&
+            Array.isArray(problemData.testCases) &&
+            problemData.testCases.some(
+              tc =>
+                (tc.Input && Object.keys(tc.Input || {}).length > 0) ||
+                (tc.Output && tc.Output.length > 0) ||
+                (tc.Expected && tc.Expected.length > 0)
+            ) && (
+              <div className="test-cases-section">
+                <h3 style={{ fontSize: '1.1rem' }}>Test Cases</h3>
+                {problemData.testCases.map((tc, index) => (
+                  <div key={index} className="test-case-block">
+                    <h4 style={{ fontSize: '1rem', marginTop: '0.75rem' }}>Case {index + 1}</h4>
+                    <pre className="test-cases-pre">
+                      {JSON.stringify(tc, null, 2)}
+                    </pre>
+                  </div>
+                ))}
+              </div>
+            )}
         </Collapsible>
       )}
     </div>
