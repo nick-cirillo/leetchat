@@ -32,9 +32,98 @@ Examples of specific steps taken:
 
 ---
 
+### **Test Case 1: Special Characters and Multi-line Wrong Inputs**
+
+* **Description**:  
+    This test case evaluates the scraper's ability to handle special characters, multi-line strings, and escape sequences within the LeetCode editor.
+
+* **Test Script**:
+    ```js
+    const msg = `Hello\nWorld\t😊`;
+    const regex = /^[A-Z]+\w*\s*$/gm;
+    console.log("Test passed \\n \\t ✔️", regex.test("HELLO world "));
+    ```
+
+* **Expected Output**:  
+    The scraper should correctly capture the full content, including:
+    - Multi-line breaks (`\n`)
+    - Tabs (`\t`)
+    - Unicode characters (`😊`)
+    - Escape sequences (`\\n`, `\\t`)
+
+* **Verification Steps**:
+    1. Load the extension and open a LeetCode problem.
+    2. Insert the JavaScript code snippet into the Monaco editor.
+    3. Trigger the scraper to capture the code.
+    4. Verify that the entire content, including special characters and formatting, is present in the output.
+---
+
+### **Test Case 2: Long Code Snippet with ListNode Logic**
+
+* **Description**:  
+    This test evaluates the scraper's handling of long JavaScript or Java code snippets, specifically involving complex logic like linked list operations.
+
+* **Test Script**:
+    ```java
+    /**
+     * Definition for singly-linked list.
+     * public class ListNode {
+     *     int val;
+     *     ListNode next;
+     *     ListNode() {}
+     *     ListNode(int val) { this.val = val; }
+     *     ListNode(int val, ListNode next) { this.val = val; this.next = next; }
+     * }
+     */
+    class Solution {
+        public ListNode addTwoNumbers(ListNode l1, ListNode l2) {
+            ListNode dummyHead = new ListNode(0);
+            ListNode tail = dummyHead;
+            int carry = 0;
+
+            while (l1 != null || l2 != null || carry != 0) {
+                int digit1 = (l1 != null) ? l1.val : 0;
+                int digit2 = (l2 != null) ? l2.val : 0;
+
+                int sum = digit1 + digit2 + carry;
+                int digit = sum % 10;
+                carry = sum / 10;
+
+                ListNode newNode = new ListNode(digit);
+                tail.next = newNode;
+                tail = tail.next;
+
+                l1 = (l1 != null) ? l1.next : null;
+                l2 = (l2 != null) ? l2.next : null;
+            }
+
+            ListNode result = dummyHead.next;
+            dummyHead.next = null;
+            return result;
+        }
+    }
+    ```
+
+* **Expected Output**:  
+    - The scraper should capture the entire class structure, including all lines and indents.
+    - No lines should be truncated, and multi-level nested blocks should remain intact.
+    - The run result is `Accpected`
+
+* **Verification Steps**:
+    1. Open a LeetCode problem and load the extension.
+    2. Paste the Java code snippet into the editor.
+    3. Trigger the scraper to capture the code.
+    4. Verify that all lines, including nested logic, are completely captured.
+
+---
+
+These two test cases ensure that special character handling and long code snippets with complex logic are captured correctly, improving reliability and completeness.
+
+---
+
 ## Prompt Testing
 
-### Test Case 1: Asking for Solution/Corrections
+### Test Case 3: Asking for Solution/Corrections
 
 * **Description**: The extension scrapes the "Two Sum" problem from LeetCode, where the user has submitted an incorrect and brute-force solution that returns values instead of indices.
 
@@ -199,7 +288,7 @@ public:
 * **Actual Output**:
 * The output corrects the code and explains the solution, as expected.
 
-### Test Case 2: Asking for Explanation/Teaching
+### Test Case 4: Asking for Explanation/Teaching
 
 * **Description**: The extension scrapes the "Reverse Integer" problem from LeetCode, where in this case the user has not yet attempted their own solution.
 
