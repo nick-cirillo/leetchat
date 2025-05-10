@@ -1089,23 +1089,23 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
           .solution-content {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             line-height: 1.6;
-            color: #333;
+            color: white;
           }
-          .solution-content h2 { margin-top: 1.8em; margin-bottom: 0.8em; font-size: 1.4em; color: #1a1a1a; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
-          .solution-content h3 { margin-top: 1.5em; margin-bottom: 0.5em; font-size: 1.2em; color: #333; }
-          .solution-content h4 { margin-top: 1.2em; margin-bottom: 0.5em; font-size: 1.1em; color: #333; }
+          .solution-content h2 { margin-top: 1.8em; margin-bottom: 0.8em; font-size: 1.4em; color: white; border-bottom: 1px solid #eee; padding-bottom: 0.3em; }
+          .solution-content h3 { margin-top: 1.5em; margin-bottom: 0.5em; font-size: 1.2em; color: white; }
+          .solution-content h4 { margin-top: 1.2em; margin-bottom: 0.5em; font-size: 1.1em; color: white; }
           .solution-content p { margin: 0.8em 0; line-height: 1.6; }
           .solution-content code { background-color: #f6f8fa; padding: 0.2em 0.4em; border-radius: 3px; font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.9em; }
-          .solution-content .inline-code { background-color: #f0f0f0; color: #e83e8c; padding: 0.1em 0.3em; border-radius: 3px; font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.9em; white-space: nowrap; }
+          .solution-content .inline-code { background-color: #f0f0f0; color: white; padding: 0.1em 0.3em; border-radius: 3px; font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; font-size: 0.9em; white-space: nowrap; }
           .solution-content pre { background-color: #f6f8fa; padding: 1em; border-radius: 6px; overflow-x: auto; margin: 1em 0; }
           .solution-content pre code { background-color: transparent; padding: 0; font-size: 0.9em; }
           .solution-content li { margin: 0.5em 0; }
           .solution-content ul, .solution-content ol { padding-left: 2em; margin: 0.8em 0; }
-          .solution-content strong { font-weight: 600; color: #000; }
+          .solution-content strong { font-weight: 600; color: white; }
           .solution-content .image-placeholder, .solution-content .code-placeholder, .solution-content .iframe-placeholder, .solution-content .video-placeholder {
             background-color: #f1f1f1;
             border: 1px dashed #ccc;
-            color: #666;
+            color: white;
             text-align: center;
             padding: 2em 1em;
             margin: 1em 0;
@@ -1142,11 +1142,11 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
 
   return (
     <div className="leetcode-scraper">
-      <h2>LeetCode Data Scraper</h2>
+      <p className="header">LeetChat</p>
       
       <div className="actions">
         {/* Always show refresh button (without conditional) */}
-        <button 
+        <button className="import-button" 
           onClick={() => {
             // Force refresh to get the latest data
             chrome.storage.local.remove('leetcodeData', () => {
@@ -1157,7 +1157,7 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
           disabled={isLoading}
           title="Force refresh to get the latest data"
         >
-          {isLoading ? 'Loading...' : 'Refresh Data'}
+          {isLoading ? 'Importing...' : 'Import LeetCode Data'}
         </button>
       </div>
 
@@ -1167,179 +1167,155 @@ const LeetcodeScraper: React.FC<{ onScrapedData?: (data: string) => void }> = ({
         </div>
       )}
 
-      {problemData && (
-        <Collapsible title="Problem Information" className="problem-data">
-          <div>
-            <strong>ID:</strong> {problemData.questionFrontendId}
-          </div>
-          <div>
-            <strong>Title:</strong> {problemData.title}
-          </div>
-          <div>
-            <strong>Difficulty:</strong> {problemData.difficulty}
-          </div>
-          <div>
-            <strong>Tags:</strong> {problemData.topicTags.map(tag => tag.name).join(', ')}
-          </div>
-          
-          {problemData.isPremium ? (
-            <div className="premium-content">
-              <h4>Premium Content</h4>
-              <div className="premium-message">
-                <p>This problem requires a LeetCode Premium subscription to access.</p>
-                <p>Please visit <a href={`https://leetcode.com/problems/${titleSlug}/`} target="_blank" rel="noopener noreferrer">LeetCode</a> and subscribe to Premium to view the full content.</p>
-              </div>
+      <Collapsible title="Imported Data">
+        <div className="parsed-content">
+        {problemData && (
+          <Collapsible title="Problem Information" className="scrape-dropdown">
+            <div>
+              <strong>ID:</strong> {problemData.questionFrontendId}
             </div>
-          ) : problemData.parsedContent ? (
-            <div className="parsed-content">
-              <Collapsible title="Description" className="description">
-                <div dangerouslySetInnerHTML={{ __html: problemData.parsedContent.description }} />
+            <div>
+              <strong>Title:</strong> {problemData.title}
+            </div>
+            <div>
+              <strong>Difficulty:</strong> {problemData.difficulty}
+            </div>
+            <div>
+              <strong>Tags:</strong> {problemData.topicTags.map(tag => tag.name).join(', ')}
+            </div>
+            
+            {problemData.isPremium ? (
+              <div className="premium-content">
+                <h4>Premium Content</h4>
+                <div className="premium-message">
+                  <p>This problem requires a LeetCode Premium subscription to access.</p>
+                  <p>Please visit <a href={`https://leetcode.com/problems/${titleSlug}/`} target="_blank" rel="noopener noreferrer">LeetCode</a> and subscribe to Premium to view the full content.</p>
+                </div>
+              </div>
+            ) : problemData.parsedContent ? (
+              <div className="parsed-content">
+                <Collapsible title="Description" className="description">
+                  <div dangerouslySetInnerHTML={{ __html: problemData.parsedContent.description }} />
+                </Collapsible>
+                
+                {problemData.parsedContent.examples && problemData.parsedContent.examples.length > 0 && (
+                  <Collapsible title="Examples" className="examples">
+                    {problemData.parsedContent.examples.map((example, index) => (
+                      <div key={index} className="example">
+                        <strong>Example {index + 1}:</strong>
+                        <pre className="example-code">
+                          <strong>Input:</strong> {formatExampleData(example.input)}
+                          {'\n'}<strong>Output:</strong> {formatExampleData(example.output)}
+                          {example.explanation && (
+                            <>
+                              {'\n\n'}<strong>Explanation:</strong>{' '}
+                              <span>{example.explanation}</span>
+                            </>
+                          )}
+                        </pre>
+                      </div>
+                    ))}
+                  </Collapsible>
+                )}
+                
+                {problemData.parsedContent.constraints && (
+                  <Collapsible title="Constraints" className="constraints">
+                    <div dangerouslySetInnerHTML={{ __html: problemData.parsedContent.constraints }} />
+                  </Collapsible>
+                )}
+                
+                {problemData.parsedContent.followUp && (
+                  <Collapsible title="Follow-up" className="follow-up">
+                    <div dangerouslySetInnerHTML={{ __html: problemData.parsedContent.followUp }} />
+                  </Collapsible>
+                )}
+              </div>
+            ) : (
+              <div className="content-preview">
+                <strong>Description Preview:</strong>
+                <div dangerouslySetInnerHTML={{ __html: problemData.content.substring(0, 200) + '...' }} />
+              </div>
+            )}
+
+            {!problemData.isPremium && problemData.solution && problemData.solution.content && (
+              <Collapsible title="Official Solution" className="solution-preview">
+                <SolutionDisplay content={problemData.solution.content} />
               </Collapsible>
-              
-              {problemData.parsedContent.examples && problemData.parsedContent.examples.length > 0 && (
-                <Collapsible title="Examples" className="examples">
-                  {problemData.parsedContent.examples.map((example, index) => (
-                    <div key={index} className="example">
-                      <strong>Example {index + 1}:</strong>
-                      <pre className="example-code">
-                        <strong>Input:</strong> {formatExampleData(example.input)}
-                        {'\n'}<strong>Output:</strong> {formatExampleData(example.output)}
-                        {example.explanation && (
-                          <>
-                            {'\n\n'}<strong>Explanation:</strong>{' '}
-                            <span>{example.explanation}</span>
-                          </>
-                        )}
+            )}
+
+            {!problemData.isPremium && !problemData.solution?.content && (
+              <div className="solution-premium">
+                <h4>Official Solution</h4>
+                {problemData.userIsPremium ? (
+                  <p>This problem does not have an official solution available.</p>
+                ) : (
+                  <p>Premium subscription required to view the official solution.</p>
+                )}
+              </div>
+            )}
+          </Collapsible>
+        )}
+
+        {problemData?.userCode && (
+          <Collapsible title="User Code" className="scrape-dropdown">
+            <div className="code-container">
+              <pre className="code-display">
+                <code>
+                  {problemData.userCode.length > 2000 
+                    ? problemData.userCode.substring(0, 2000) + '...' 
+                    : problemData.userCode}
+                </code>
+              </pre>
+            </div>
+          </Collapsible>
+        )}
+
+        {problemData && (
+          <Collapsible title="Test Results" className="scrape-dropdown">
+            {problemData.testResult ? (
+              <div className={`test-result-status ${problemData.testResult.success ? 'success' : 'failure'}`}>
+                <strong>Status:</strong> {problemData.testResult.status}
+                {problemData.testResult.details && (
+                  <div className="test-details">
+                    {problemData.testResult.details.runtime && (
+                      <div><strong>Runtime:</strong> {problemData.testResult.details.runtime}</div>
+                    )}
+                    {problemData.testResult.details.memory && (
+                      <div><strong>Memory:</strong> {problemData.testResult.details.memory}</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="test-result-notice">
+                <p>Run your code in LeetCode to see test results here.</p>
+              </div>
+            )}
+            {/* Render testCases only if at least one case has non-empty Input/Output/Expected */}
+            {problemData.testCases &&
+              Array.isArray(problemData.testCases) &&
+              problemData.testCases.some(
+                tc =>
+                  (tc.Input && Object.keys(tc.Input || {}).length > 0) ||
+                  (tc.Output && tc.Output.length > 0) ||
+                  (tc.Expected && tc.Expected.length > 0)
+              ) && (
+                <div className="test-cases-section">
+                  <h3 style={{ fontSize: '1.1rem' }}>Test Cases</h3>
+                  {problemData.testCases.map((tc, index) => (
+                    <div key={index} className="test-case-block">
+                      <h4 style={{ fontSize: '1rem', marginTop: '0.75rem' }}>Case {index + 1}</h4>
+                      <pre className="test-cases-pre">
+                        {JSON.stringify(tc, null, 2)}
                       </pre>
                     </div>
                   ))}
-                </Collapsible>
-              )}
-              
-              {problemData.parsedContent.constraints && (
-                <Collapsible title="Constraints" className="constraints">
-                  <div dangerouslySetInnerHTML={{ __html: problemData.parsedContent.constraints }} />
-                </Collapsible>
-              )}
-              
-              {problemData.parsedContent.followUp && (
-                <Collapsible title="Follow-up" className="follow-up">
-                  <div dangerouslySetInnerHTML={{ __html: problemData.parsedContent.followUp }} />
-                </Collapsible>
-              )}
-            </div>
-          ) : (
-            <div className="content-preview">
-              <strong>Description Preview:</strong>
-              <div dangerouslySetInnerHTML={{ __html: problemData.content.substring(0, 200) + '...' }} />
-            </div>
-          )}
-
-          {!problemData.isPremium && problemData.solution && problemData.solution.content && (
-            <Collapsible title="Official Solution" className="solution-preview">
-              <SolutionDisplay content={problemData.solution.content} />
-            </Collapsible>
-          )}
-
-          {!problemData.isPremium && !problemData.solution?.content && (
-            <div className="solution-premium">
-              <h4>Official Solution</h4>
-              {problemData.userIsPremium ? (
-                <p>This problem does not have an official solution available.</p>
-              ) : (
-                <p>Premium subscription required to view the official solution.</p>
-              )}
-            </div>
-          )}
-        </Collapsible>
-      )}
-
-      {problemData?.userCode && (
-        <Collapsible title="User Code" className="user-code">
-          <div className="code-notice">
-            <p>⚠️ Note: Currently only Java and Python code formatting is fully supported, other languages may display incorrectly</p>
-          </div>
-          <div className="code-actions">
-            <button 
-              onClick={() => navigator.clipboard.writeText(problemData.userCode || '')}
-              className="action-button"
-            >
-              Copy Code
-            </button>
-            <button 
-              onClick={() => {
-                const blob = new Blob([problemData.userCode || ''], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                const extension = detectLanguage(problemData.userCode || '');
-                a.download = `leetcode-${problemData.questionFrontendId}-solution.${extension}`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-              }}
-              className="action-button"
-            >
-              Download Code File
-            </button>
-          </div>
-          <div className="code-container">
-            <pre className="code-display">
-              <code>
-                {problemData.userCode.length > 2000 
-                  ? problemData.userCode.substring(0, 2000) + '...' 
-                  : problemData.userCode}
-              </code>
-            </pre>
-          </div>
-        </Collapsible>
-      )}
-
-      {problemData && (
-        <Collapsible title="Test Results" className="test-results">
-          {problemData.testResult ? (
-            <div className={`test-result-status ${problemData.testResult.success ? 'success' : 'failure'}`}>
-              <strong>Status:</strong> {problemData.testResult.status}
-              {problemData.testResult.details && (
-                <div className="test-details">
-                  {problemData.testResult.details.runtime && (
-                    <div><strong>Runtime:</strong> {problemData.testResult.details.runtime}</div>
-                  )}
-                  {problemData.testResult.details.memory && (
-                    <div><strong>Memory:</strong> {problemData.testResult.details.memory}</div>
-                  )}
                 </div>
               )}
-            </div>
-          ) : (
-            <div className="test-result-notice">
-              <p>Run your code in LeetCode to see test results here.</p>
-            </div>
-          )}
-          {/* Render testCases only if at least one case has non-empty Input/Output/Expected */}
-          {problemData.testCases &&
-            Array.isArray(problemData.testCases) &&
-            problemData.testCases.some(
-              tc =>
-                (tc.Input && Object.keys(tc.Input || {}).length > 0) ||
-                (tc.Output && tc.Output.length > 0) ||
-                (tc.Expected && tc.Expected.length > 0)
-            ) && (
-              <div className="test-cases-section">
-                <h3 style={{ fontSize: '1.1rem' }}>Test Cases</h3>
-                {problemData.testCases.map((tc, index) => (
-                  <div key={index} className="test-case-block">
-                    <h4 style={{ fontSize: '1rem', marginTop: '0.75rem' }}>Case {index + 1}</h4>
-                    <pre className="test-cases-pre">
-                      {JSON.stringify(tc, null, 2)}
-                    </pre>
-                  </div>
-                ))}
-              </div>
-            )}
-        </Collapsible>
-      )}
+          </Collapsible>
+        )}
+      </div>
+      </Collapsible>
     </div>
   );
 };

@@ -56,6 +56,16 @@ function App() {
     }
   };
 
+  // In the App function, add this mapping for LLM brand colors and icons
+  const aiServiceConfig: Record<string, { color: string; icon: string }> = {
+    ChatGPT: { color: "#78AD9F", icon: "chatgpt.png" },
+    Claude: { color: "#D87A5A", icon: "claude.png" },
+    Gemini: { color: "#717FD9", icon: "gemini.png" },
+    Deepseek: { color: "#4D6BFE", icon: "deepseek.png" },
+    Perplexity: { color: "#20B8CD", icon: "perplexity.png" },
+    Grok: { color: "#131313", icon: "grok.png" }
+  };
+
   // Function to handle the scraped content from LeetcodeScraper
   const handleScrapedData = (data: any) => {
     if (!data) {
@@ -102,7 +112,7 @@ function App() {
       </div>
 
       <div className="prompt-options">
-        <h3>Prompt Type</h3>
+        <p className="subheader">Prompt Type</p>
         <div className="radio-group">
           {["Explain", "Debug", "Solve", "Custom"].map((promptType) => (
             <label key={promptType} className="radio-label">
@@ -139,6 +149,7 @@ function App() {
       )}
 
       <div className="output-section">
+        <p className="subheader">Generated Prompt</p>
         <textarea
           className="output-field"
           placeholder="Extracted code/text will appear here..."
@@ -156,7 +167,7 @@ function App() {
       </div>
 
       <div className="ai-services">
-        <h3>Open with:</h3>
+        <p className="subheader">Open with:</p>
         <div className="service-buttons">
           {["ChatGPT", "Claude", "Gemini", "Deepseek", "Perplexity", "Grok"].map(
             (service) => (
@@ -164,7 +175,13 @@ function App() {
                 key={service}
                 className="ai-service-button"
                 onClick={() => openAiService(service)}
+                style={{ backgroundColor: aiServiceConfig[service].color }}
               >
+                <img 
+                  src={`/icons/${aiServiceConfig[service].icon}`} 
+                  alt={service} 
+                  className="service-icon" 
+                />
                 {service}
               </button>
             )
