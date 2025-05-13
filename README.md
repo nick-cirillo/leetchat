@@ -59,11 +59,6 @@ There aren't any releases yet, so for now, follow "Install from Source" below. B
 - [Mia Kim](https://github.com/miaqkim) - worked on the prompt box to allow the user to seamlessly copy to an LLM.
 - [Amy Zheng](https://github.com/amytangzheng) - worked on the radio buttons and prompt engineering for different prompt types.
 
-## Known Bugs/Incomplete Features
-
-- User tests don't scrape properly
-- We haven't "prettified" the UI yet
-
 ## Credits
 
 The initial setup of the Chrome extension skeleton was based on the tutorial by [Harshita Joshi](https://github.com/Harshita-mindfire) on creating a Chrome extension with React and TypeScript. The corresponding Medium article can be found [here](https://medium.com/@tharshita13/creating-a-chrome-extension-with-react-a-step-by-step-guide-47fe9bab24a1). This was then adapted by Professor Jérémie Lumbroso at the University of Pennsylvania, and you can find that repository [here](https://github.com/jlumbroso). We then forked this repository for our project.
